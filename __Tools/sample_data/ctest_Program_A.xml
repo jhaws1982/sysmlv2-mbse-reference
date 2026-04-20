@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample CTest JUnit XML output for Program A.
+     Test names MUST match verification names in ProgramA_Verification.sysml. -->
+<testsuites name="CTestResults" time="1.23">
+  <testsuite name="ProgramA" tests="2" failures="0" time="1.23">
+    <testcase name="programA_Test" classname="ProgramA" time="0.89" />
+    <testcase name="programA_PerformanceTest" classname="ProgramA" time="0.34">
+      <skipped message="Performance rig not configured in this run" />
+    </testcase>
+  </testsuite>
+</testsuites>

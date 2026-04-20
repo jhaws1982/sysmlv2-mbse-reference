@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample CTest JUnit XML output for Program B.
+     Test names MUST match verification names in ProgramB_Verification.sysml. -->
+<testsuites name="CTestResults" time="0.91">
+  <testsuite name="ProgramB" tests="2" failures="0" time="0.91">
+    <testcase name="programB_Test" classname="ProgramB" time="0.45" />
+    <testcase name="programB_InterfaceTest" classname="ProgramB" time="0.46">
+      <failure message="Interface version mismatch on port 2" type="FAIL" />
+    </testcase>
+  </testsuite>
+</testsuites>
