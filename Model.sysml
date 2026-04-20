@@ -29,11 +29,16 @@
  *
  * 00_Shared/
  *   Data_Types.sysml          leaf:  package SharedData
- *   _namespace.sysml          hub:   package Shared { package Data { ... } }
+ *   SRS_Definitions.sysml     leaf:  package SRS_Definitions  (DI-IPSC-81433A metamodel)
+ *   _namespace.sysml          hub:   package Shared {
+ *                                        package Data { ... }
+ *                                        package SRS  { ... }
+ *                                    }
  *
  * 01_Stakeholders/
- *   Stakeholders_and_Concerns.sysml   leaf:  package Stakeholders
- *   (no hub needed — leaf name IS the desired public name)
+ *   Stakeholders.sysml                       leaf: StakeholderDefs
+ *   Concerns.sysml                           leaf: StakeholderConcerns
+ *   _namespace.sysml                         hub:  Stakeholders::Roles, Stakeholders::Concerns
  *
  * 02_Core/
  *   _namespace.sysml          hub:   package Core {
@@ -82,6 +87,7 @@
  */
 package Generic_Model {
     private import Shared::Data::*;
+    private import Shared::SRS::*;
     private import Stakeholders::Roles::*;
     private import Stakeholders::Concerns::*;
     private import Core::Architecture::*;

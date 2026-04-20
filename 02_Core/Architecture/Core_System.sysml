@@ -1,19 +1,15 @@
-// Target spec: SysML v2 2025-07 (SysIDE 0.8.x compatible)
 /**
- * CoreSystem — top-level structural assembly of the core system.
- *
- * LEAF FILE.  Globally unique name "CoreSystem".
- * Assembled into  Core::Architecture  by the namespace hub.
+ * CoreSystem — top-level core system assembly.
+ * LEAF file. Re-exported as Core::Architecture by 02_Core/_namespace.sysml.
  */
 package CoreSystem {
+    private import SharedData::*;
     private import FeatureA::*;
     private import FeatureB::*;
     private import FeatureC::*;
 
-    part def Core_System {
-        doc /* Top-level assembly composing the three feature components. */
-        part featureA : FeatureA_Component;
-        part featureB : FeatureB_Component;
+    part def CoreSystem_Assembly {
+        doc /* Top-level assembly of the core CSCI. */
         part featureC : FeatureC_Component;
     }
 }

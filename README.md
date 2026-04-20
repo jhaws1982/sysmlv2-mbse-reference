@@ -1,112 +1,8 @@
-# Generic Model v3 — Nested Namespace Pattern
+# Generic_Model_v3
 
-## What Changed from v2
-
-v3 introduces the **leaf + hub** pattern throughout.  Every layer now has:
-
-- **Leaf files** — define content under short, globally-unique package names
-  (`FeatureA`, `FeatureB`, `RequirementsDef`, etc.)
-- **Hub files** (`_namespace.sysml`) — the **one and only** declaration of each
-  nested namespace node, assembling leaf packages via `public import`
-
-This eliminates the `'Core' shadows previously declared element` warning by
-ensuring each namespace node (`Core`, `Programs`, `Verification`, etc.) is
-declared in exactly one place.
-
----
-
-## The Leaf + Hub Pattern
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  FeatureA.sysml                                         │
-│  ─────────────                                          │
-│  package FeatureA {          ← short, unique, no ::    │
-│      part def FeatureA_Component { ... }                │
-│  }                                                      │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│  02_Core/_namespace.sysml    (the hub — ONE file)       │
-│  ─────────────────────────                              │
-│  package Core {              ← declared ONCE, here only │
-│      package Architecture {                             │
-│          public import FeatureA::*;   ← re-exports      │
-│          public import FeatureB::*;                     │
-│          public import FeatureC::*;                     │
-│          public import CoreSystem::*;                   │
-│      }                                                  │
-│      package Requirements {                             │
-│          public import RequirementsDef::*;              │
-│          public import RequirementsDecl::*;             │
-│      }                                                  │
-│  }                                                      │
-└─────────────────────────────────────────────────────────┘
-
-// Any consumer file:
-private import Core::Architecture::*;   // ← clean nested path
-// FeatureA_Component, FeatureB_Component, Core_System all visible
-```
-
----
-
-## Which `_namespace.sysml` Files Are Active
-
-| Hub file | Declares | Assembles |
-|---|---|---|
-| `00_Shared/_namespace.sysml` | `package Shared` | `SharedData` leaf |
-| `02_Core/_namespace.sysml` | `package Core` | `FeatureA`, `FeatureB`, `FeatureC`, `CoreSystem`, `RequirementsDef`, `RequirementsDecl` |
-| `04_Programs/_namespace.sysml` | `package Programs` | all four ProgramA_* and ProgramB_* leaves |
-| `05_Verification/_namespace.sysml` | `package Verification` | `TestCases`, `Results`, `Traceability` leaves |
-
-The files `02_Core/Architecture/_namespace.sysml` and
-`02_Core/Requirements/_namespace.sysml` are **superseded** by
-`02_Core/_namespace.sysml` and should be deleted (or ignored — they are
-provided as documentation of the split-hub alternative).
-
----
-
-## Import Path Reference
-
-| What you want | Import to write |
-|---|---|
-| Shared enums / items | `private import Shared::Data::*;` |
-| Stakeholders / concerns | `private import Stakeholders::*;` |
-| Feature components + Core_System | `private import Core::Architecture::*;` |
-| Requirement defs (types) | `private import Core::Requirements::*;` |
-| Requirement decls (usages) | `private import Core::Requirements::*;` (same import — hub re-exports both) |
-| Product-line base config | `private import Configurations::*;` |
-| Program A everything | `private import Programs::ProgramA::*;` |
-| Program B everything | `private import Programs::ProgramB::*;` |
-| Verification test case defs | `private import Verification::TestCases::*;` |
-| Verification traceability | `private import Verification::Traceability::*;` |
-
----
-
-## Rules for Extending the Model
-
-### Adding a Feature D
-
-1. Create `02_Core/Architecture/FeatureD.sysml` with `package FeatureD { ... }`
-2. Add `public import FeatureD::*;` inside the `Architecture` block of
-   `02_Core/_namespace.sysml`
-3. Add `part featureD : FeatureD_Component;` inside `Core_System` in
-   `02_Core/Architecture/Core_System.sysml`
-
-No other files need to change.
-
-### Adding a Program C
-
-1. Create `04_Programs/Program_C/` with the same four leaf files as Program A/B
-2. Add a `package ProgramC { public import ProgramC::*; ... }` block inside
-   `04_Programs/_namespace.sysml`
-
-### Why `public import` Only in Hub Files
-
-`public import` makes imported names *re-exportable* — anyone who imports the hub
-package also sees the leaf package members.  This is what makes the nested path work.
-Using `public import` anywhere else would create unintended namespace leakage, which
-is why every non-hub import in the model is `private import`.
+A reference SysML v2 model demonstrating multi-file architecture with the
+Leaf + Hub namespace pattern, DI-IPSC-81433A compliant requirements using
+`SRS_Definitions`, and Python Automator tooling.
 
 ---
 
@@ -115,47 +11,157 @@ is why every non-hub import in the model is `private import`.
 ```
 Generic_Model_v3/
 │
-├── Model.sysml                              ← root index, all imports via nested paths
+├── Model.sysml                              ← root index package
 │
 ├── 00_Shared/
 │   ├── Data_Types.sysml                     leaf: SharedData
-│   └── _namespace.sysml                     hub:  Shared::Data
+│   ├── SRS_Definitions.sysml                leaf: SRS_Definitions  ← DI-IPSC-81433A metamodel
+│   └── _namespace.sysml                     hub:  Shared::Data, Shared::SRS
 │
 ├── 01_Stakeholders/
-│   └── Stakeholders_and_Concerns.sysml      leaf+public name: Stakeholders
+│   ├── Stakeholders.sysml                   leaf: StakeholderDefs
+│   ├── Concerns.sysml                       leaf: StakeholderConcerns
+│   └── _namespace.sysml                     hub:  Stakeholders::Roles, Stakeholders::Concerns
 │
 ├── 02_Core/
-│   ├── _namespace.sysml                     hub:  Core::Architecture + Core::Requirements
+│   ├── _namespace.sysml                     hub:  Core::Architecture, Core::Requirements
 │   ├── Architecture/
 │   │   ├── FeatureA.sysml                   leaf: FeatureA
 │   │   ├── FeatureB.sysml                   leaf: FeatureB
 │   │   ├── FeatureC.sysml                   leaf: FeatureC
-│   │   ├── Core_System.sysml                leaf: CoreSystem
-│   │   └── _namespace.sysml                 (superseded — kept for reference)
+│   │   └── Core_System.sysml               leaf: CoreSystem
 │   └── Requirements/
-│       ├── Requirements_Def.sysml           leaf: RequirementsDef
-│       ├── Requirements_Decl.sysml          leaf: RequirementsDecl
-│       └── _namespace.sysml                 (superseded — kept for reference)
+│       ├── Requirements_Def.sysml           leaf: RequirementsDef  (SRS types)
+│       └── Requirements_Decl.sysml          leaf: RequirementsDecl (bound to architecture)
 │
 ├── 03_ProductLine/
-│   └── Configurations.sysml                 leaf+public name: Configurations
+│   └── Configurations.sysml                 leaf: ProductLineConfigurations
 │
 ├── 04_Programs/
-│   ├── _namespace.sysml                     hub:  Programs::ProgramA + Programs::ProgramB
+│   ├── _namespace.sysml                     hub:  Programs::ProgramA, Programs::ProgramB
 │   ├── Program_A/
 │   │   ├── Config.sysml                     leaf: ProgramA
+│   │   ├── Stakeholders/
+│   │   │   ├── Stakeholders.sysml           leaf: ProgramA_StakeholderDefs
+│   │   │   └── Concerns.sysml               leaf: ProgramA_StakeholderConcerns
 │   │   ├── Deployment/Deployment.sysml      leaf: ProgramA_Deployment
-│   │   ├── Requirements/Requirements.sysml  leaf: ProgramA_Requirements
+│   │   ├── Requirements/Requirements.sysml  leaf: ProgramA_Requirements (SRS types)
 │   │   └── Verification/Verification.sysml  leaf: ProgramA_Verification
 │   └── Program_B/
 │       ├── Config.sysml                     leaf: ProgramB
+│       ├── Stakeholders/
+│       │   ├── Stakeholders.sysml           leaf: ProgramB_StakeholderDefs
+│       │   └── Concerns.sysml               leaf: ProgramB_StakeholderConcerns
 │       ├── Deployment/Deployment.sysml      leaf: ProgramB_Deployment
-│       ├── Requirements/Requirements.sysml  leaf: ProgramB_Requirements
+│       ├── Requirements/Requirements.sysml  leaf: ProgramB_Requirements (SRS types)
 │       └── Verification/Verification.sysml  leaf: ProgramB_Verification
 │
-└── 05_Verification/
-    ├── _namespace.sysml                     hub:  Verification::TestCases/Results/Traceability
-    ├── TestCases.sysml                      leaf: TestCases
-    ├── Results.sysml                        leaf: Results
-    └── Traceability.sysml                   leaf: Traceability
+├── 05_Verification/
+│   ├── _namespace.sysml                     hub:  Verification::TestCases/Results/Traceability
+│   ├── TestCases.sysml                      leaf: TestCases
+│   ├── Results.sysml                        leaf: Results
+│   └── Traceability.sysml                   leaf: Traceability
+│
+└── __Tools/
+    ├── concerns_matrix.py                   Concern → Requirement traceability matrix
+    ├── coverage_matrix.py                   Requirement → Verification coverage matrix
+    ├── dependency_map.py                    Software artifact dependency map
+    ├── req_debug.py                         SysIDE API diagnostic tool
+    ├── req_report.py                        Requirements list + hierarchy diagrams
+    ├── req_validate.py                      SRS_Definitions constraint validator  ← NEW
+    ├── result_matrix.py                     CTest result matrix
+    ├── satisfaction_matrix.py               Requirement satisfaction matrix
+    ├── test_req_validate.py                 Unit tests for req_validate.py        ← NEW
+    └── sample_data/
+        ├── ctest_core.xml
+        ├── ctest_Program_A.xml
+        └── ctest_Program_B.xml
+```
+
+---
+
+## Namespace Architecture
+
+Every layer uses the **Leaf + Hub** pattern:
+
+- **LEAF FILE** — flat, globally-unique package name, owns the content
+- **HUB FILE** (`_namespace.sysml`) — the ONE declaration of a nested namespace
+  node, assembles leaf packages via `public import`
+
+Consumers always import via the nested path: `private import Core::Architecture::*`
+
+`public import` appears **only** in hub files. All other imports are `private import`.
+
+---
+
+## SRS Requirements Pattern
+
+All requirements in this model specialize types from `SRS_Definitions`
+(DI-IPSC-81433A compliant). Import the package via:
+
+```sysml
+private import SRS_Definitions::*;
+// or via the namespace hub:
+private import Shared::SRS::*;
+```
+
+Each requirement follows the Def/Decl split:
+
+```sysml
+// DEF — stable type, framing a concern
+requirement def <'REQ-CAP-001-DEF'> MyCapability_Def :> CapabilityRequirement {
+    doc /* ... */
+    frame concern MyConcern;
+}
+
+// DECL — usage with all SRS fields populated
+requirement <'REQ-CAP-001'> myCapability : MyCapability_Def {
+    subject sys : MySystem;
+    attribute :>> id             = "REQ-CAP-001";
+    attribute :>> text           = "The system shall ...";
+    attribute :>> rationale      = "...";
+    attribute :>> source         = "...";
+    attribute :>> priority       = "High";
+    attribute :>> criticality    = "Critical";
+    attribute :>> capabilityName = "...";
+    attribute :>> latency        = "...";
+    part :>> criteria : VerificationCriteria {
+        attribute :>> verificationMethod = VerificationMethodKind::Test;
+        attribute :>> passFailLogic      = "PASS if ...";
+        attribute :>> threshold          = "...";
+        attribute :>> conditions         = "...";
+    }
+}
+```
+
+---
+
+## Tooling
+
+All tools run from the model root directory:
+
+```bash
+# Validate SRS requirements (default: show all levels)
+python __Tools/req_validate.py .
+
+# Validate with CI gate (fail if any INVALID)
+python __Tools/req_validate.py . --fail-on-invalid
+
+# Validate specific package only
+python __Tools/req_validate.py . --package ProgramA_Requirements
+
+# Use a different SRS definitions package name
+python __Tools/req_validate.py . --srs-package MyProject_SRS
+
+# Run unit tests
+pytest __Tools/test_req_validate.py -v
+
+# Requirements report
+python __Tools/req_report.py . --format md
+
+# Other matrices
+python __Tools/concerns_matrix.py .
+python __Tools/satisfaction_matrix.py .
+python __Tools/coverage_matrix.py .
+python __Tools/dependency_map.py .
 ```
