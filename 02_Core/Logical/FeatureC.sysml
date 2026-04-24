@@ -1,6 +1,6 @@
 /**
  * FeatureC — core architecture component C.
- * LEAF file. Re-exported as Core::Architecture by 02_Core/_namespace.sysml.
+ * LEAF file. Re-exported as Core::Logical by 02_Core/_namespace.sysml.
  */
 package FeatureC {
     private import SharedData::*;

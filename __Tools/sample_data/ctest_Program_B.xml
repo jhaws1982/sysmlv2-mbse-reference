@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sample CTest JUnit XML output for Program B.
-     Test names MUST match verification names in ProgramB_Verification.sysml. -->
-<testsuites name="CTestResults" time="0.91">
-  <testsuite name="ProgramB" tests="2" failures="0" time="0.91">
-    <testcase name="programB_Test" classname="ProgramB" time="0.45" />
-    <testcase name="programB_InterfaceTest" classname="ProgramB" time="0.46">
-      <failure message="Interface version mismatch on port 2" type="FAIL" />
+<testsuites>
+  <testsuite name="ProgramB" tests="3" failures="1" errors="0">
+    <testcase name="programB_SafetyIntegrityTest" classname="ProgramB" time="485.2" status="run">
+    </testcase>
+    <testcase name="programB_InterfaceStabilityInspection" classname="ProgramB" time="31.7" status="run">
+    </testcase>
+    <testcase name="programB_ResourceConstraintAnalysis" classname="ProgramB" time="156.4" status="run">
+      <failure message="CPU utilization reached 74% during peak load window 00:42:15-00:43:15 — exceeds 70% threshold">
+        Peak load test window violation.
+        Threshold: CPU &lt;= 70%. Observed: 74% max over 60-second window.
+        Safety monitoring headroom insufficient during peak burst.
+      </failure>
     </testcase>
   </testsuite>
 </testsuites>

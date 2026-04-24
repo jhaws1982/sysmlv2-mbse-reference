@@ -1,59 +1,58 @@
 /**
  * RequirementsDef — core CSCI requirement definitions (Def side of Def/Decl split).
  *
- * LEAF file. Re-exported as Core::Requirements by 02_Core/_namespace.sysml.
+ * LEAF FILE. Globally unique name "RequirementsDef".
+ * Assembled into Core::Requirements by 02_Core/_namespace.sysml.
  *
- * All requirement defs specialize types from SRS_Definitions (Shared::SRS).
- * This file is stable — it defines the types. The Decl file binds them to
- * architecture elements and changes with the design.
+ * Stable types — each def specializes an SRS_Definitions type and frames
+ * one or more stakeholder concerns. Changes only when new requirement
+ * categories are identified. The Decl file binds these to architecture
+ * elements and changes with the design.
  */
 package RequirementsDef {
     private import SRS_Definitions::*;
-    private import ScalarValues::*;
+    private import StakeholderConcerns::*;
 
-    //------------------------------------------------------------------
-    // Capability Requirements (§3.2.x) — what the CSCI must do
-    //------------------------------------------------------------------
+    // ── Capability Requirements (§3.2.x) ──────────────────────────────────
 
     requirement def <'REQ-CAP-001-DEF'> ProcessingCapability_Def
-        :> CapabilityRequirement {
+            :> CapabilityRequirement {
         doc /* The CSCI shall provide real-time data processing capability
                for all inbound data streams within the defined latency budget. */
+        frame concern Concern_ProcessingLatency;
     }
 
     requirement def <'REQ-CAP-002-DEF'> IntegrationCapability_Def
-        :> CapabilityRequirement {
+            :> CapabilityRequirement {
         doc /* The CSCI shall integrate Feature A and Feature B subsystems
                into a unified processing pipeline. */
+        frame concern Concern_ProcessingLatency;
     }
 
-    //------------------------------------------------------------------
-    // Interface Requirements (§3.3.x) — external interfaces
-    //------------------------------------------------------------------
+    // ── Interface Requirements (§3.3.x) ───────────────────────────────────
 
     requirement def <'REQ-IFC-001-DEF'> ExternalDataInterface_Def
-        :> InterfaceRequirement {
+            :> InterfaceRequirement {
         doc /* The CSCI shall implement the external data interface between
                the Core processing subsystem and the external data source. */
+        frame concern Concern_InterfaceConformance;
     }
 
-    //------------------------------------------------------------------
-    // Quality Requirements (§3.11) — software quality factors
-    //------------------------------------------------------------------
+    // ── Quality Requirements (§3.11) ───────────────────────────────────────
 
     requirement def <'REQ-QUA-001-DEF'> SystemAvailability_Def
-        :> QualityRequirement {
+            :> QualityRequirement {
         doc /* The CSCI shall meet the availability requirement specified
                in the system-level performance budget. */
+        frame concern Concern_SystemAvailability;
     }
 
-    //------------------------------------------------------------------
-    // Design Constraint Requirements (§3.12)
-    //------------------------------------------------------------------
+    // ── Design Constraint Requirements (§3.12) ─────────────────────────────
 
     requirement def <'REQ-DSN-001-DEF'> ProgrammingLanguageConstraint_Def
-        :> DesignConstraintRequirement {
+            :> DesignConstraintRequirement {
         doc /* The CSCI shall be implemented using the approved programming
                language(s) specified in the Software Development Plan. */
+        frame concern Concern_Testability;
     }
 }

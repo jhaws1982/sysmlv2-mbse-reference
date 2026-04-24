@@ -1,6 +1,6 @@
 /**
  * FeatureA — core architecture component A.
- * LEAF file. Re-exported as Core::Architecture by 02_Core/_namespace.sysml.
+ * LEAF file. Re-exported as Core::Logical by 02_Core/_namespace.sysml.
  */
 package FeatureA {
     private import SharedData::*;

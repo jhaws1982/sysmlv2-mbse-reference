@@ -7,12 +7,48 @@
 // This library is intended to be reused across programs to ensure SRS-compliant
 // requirement structure, especially for capability, interface, data, and
 // verification definitions.
+//
+// ── Doc Convention ──────────────────────────────────────────────────────────
+//
+// Every requirement usage instantiated from this library MUST carry the
+// following doc annotations on the usage site (i.e., in your *Decl.sysml
+// files), in order:
+//
+// 1. Unnamed doc — the normative requirement statement (the "shall" text):
+//
+// doc
+// /* The CSCI shall <verb> <object> under <conditions>. */
+//
+// 2. Named doc Rationale — explanation of why this requirement exists:
+//
+// doc Rationale
+// /* <Why this is required, what risk it mitigates, or what
+// * stakeholder concern it addresses.> */
+//
+// The short-name position carries the project-unique identifier:
+//
+// requirement <'REQ-CAP-001'> myRequirement : CapabilityRequirement { ... }
+//
+// These are enforced at tool validation time (req_validate.py), not by the
+// SysML type system — the language provides no mechanism to mandate doc
+// annotation presence on a subtype. The assert constraints below cover only
+// what the type system CAN enforce: structured attributes with typed values.
+//
+// ── What NOT to put in doc annotations ──────────────────────────────────────
+//
+// Keep the following as typed attributes (they are already defined below):
+// - verificationMethod (enum-typed — tool constraints depend on this value)
+// - priority / criticality (enum-typed)
+// - units (enum-typed)
+// - all identifier-like name fields (interfaceName, capabilityName, etc.)
+//
+// ────────────────────────────────────────────────────────────────────────────
 
-package <SRSREQ> SRS_Definitions {
+library package <SRSREQ> SRS_Definitions {
   // Private imports: names are visible inside this package only, not re-exported.
   // Use 'public import' only in namespace hub files intended to re-export names.
   private import ScalarValues::*;
-  private import SDLDEF::*;
+  private import CommonDefinitions::*;
 
   // Allowed verification methods per DI-IPSC-81433A §4.
   enum def VerificationMethodKind {
@@ -62,45 +98,57 @@ package <SRSREQ> SRS_Definitions {
   // If you don't define criteria, no method is required.
   // Enforced structurally — verificationMethod is [1] (default) inside this
   // part def, so its presence is required whenever criteria is instantiated.
+  //
+  // Doc convention for VerificationCriteria usage sites:
+  // doc — describe the overall test objective in prose (replaces the former
+  // criteriaObjective, conditions, and passFailLogic string attributes).
+  //
+  // Example:
+  // part myCriteria : VerificationCriteria {
+  // doc
+  // /* Under nominal load (≤ 1000 concurrent users), inject 100 requests
+  // * at 10 req/s. The test passes if ≥ 99% of responses arrive within
+  // * 200ms and no error responses are returned.
+  // */
+  // attribute verificationMethod = VerificationMethodKind::Test;
+  // attribute threshold = "200ms at p99";
+  // }
+  //
+  // threshold is kept as a typed attribute because it is a compact, queryable
+  // value (e.g. "200ms", "99.9%") used by automated reporting tools.
   // ----------------------------------------
   part def VerificationCriteria {
-    // 'objective' is a reserved keyword in SysML v2 (used in use case / analysis def).
-    attribute criteriaObjective : ScalarValues::String [0..1];
     attribute threshold : ScalarValues::String [0..1];
-    attribute conditions : ScalarValues::String [0..1];
-    attribute passFailLogic : ScalarValues::String;
-
     // [1] by default — required whenever a VerificationCriteria part is instantiated.
     attribute verificationMethod : VerificationMethodKind;
-
-    assert constraint PassFailDefined { passFailLogic != "" }
   }
 
   // ----------------------------------------
   // Base Requirement Definition             [DI-IPSC-81433A §3, §3.18]
   //
   // Root type for all SRS requirement definitions in this library. Provides
-  // the attributes common to every CSCI requirement per §3: a project-unique
-  // identifier to support testing and traceability, requirement text stated so
-  // that an objective test can be defined for it, and optional rationale and
-  // source traceability. Per §3.18, priority and criticality fields support
-  // precedence ordering to identify requirements critical to safety, security,
-  // or privacy for special treatment. All specializations inherit these fields.
+  // the structure common to every CSCI requirement per §3.
+  //
+  // REQUIRED at every usage site — enforced by req_validate.py:
+  // <'REQ-ID'>      project-unique identifier in the short-name position
+  // doc             normative requirement text ("shall" statement)
+  // doc Rationale   rationale for this requirement
+  //
+  // OPTIONAL attributes:
+  // source          traceability to a parent requirement or stakeholder need
+  // priority        precedence ordering per §3.18
+  // criticality     safety/security/privacy designation per §3.18
+  // criteria        structured verification criteria (adds verificationMethod)
+  //
+  // All specializations inherit these fields and conventions.
   // ----------------------------------------
   requirement def SRS_Requirement {
-    attribute id : ScalarValues::String;
-    attribute text : ScalarValues::String;
-    attribute rationale : ScalarValues::String;
     attribute source : ScalarValues::String [0..1];
-    attribute priority : SDLDEF::LevelKind [0..1];
-    attribute criticality : SDLDEF::LevelKind [0..1];
+    attribute priority : CMNDEF::LevelKind [0..1];
+    attribute criticality : CMNDEF::LevelKind [0..1];
 
     // Optional: if absent, no verificationMethod is required (see VerificationCriteria above).
     part criteria : VerificationCriteria [0..1];
-
-    assert constraint HasID { id != "" }
-    assert constraint HasText { text != "" }
-    assert constraint HasRationale { rationale != "" }
   }
 
   // ----------------------------------------
@@ -112,20 +160,23 @@ package <SRSREQ> SRS_Definitions {
   // sequencing, accuracy, and allowable deviations under operating conditions.
   // At least one performance attribute must be populated to ensure the
   // requirement is measurable and testable.
+  //
+  // Doc convention: the unnamed doc at the usage site should state the
+  // performance constraint in measurable terms. Example:
+  // doc
+  // /* The CSCI shall process inbound telemetry at ≥ 10,000 messages per
+  // * second with end-to-end latency ≤ 50ms at p99 under nominal load. */
   // ----------------------------------------
   requirement def PerformanceAspect :> SRS_Requirement {
     attribute performance : ScalarValues::String [0..1];
     attribute timing : ScalarValues::String [0..1];
     attribute throughput : ScalarValues::String [0..1];
-    attribute latency : ISQ::TimeValue [0..1];
+    attribute latency : ScalarValues::String [0..1];
     attribute accuracy : ScalarValues::String [0..1];
+    attribute capacity : ScalarValues::String [0..1];
 
     assert constraint PerformanceDefined {
-      performance != "" or
-      timing != "" or
-      throughput != "" or
-      latency != "" or
-      accuracy != ""
+      performance != "" or timing != "" or throughput != "" or latency != "" or accuracy != "" or capacity != ""
     }
   }
 
@@ -264,9 +315,24 @@ package <SRSREQ> SRS_Definitions {
   // Per §3.7, examples include safeguards against inadvertent actions (e.g.,
   // accidentally issuing a critical command) and non-actions (e.g., failure to
   // issue an intended command). Also covers nuclear safety rules where
-  // applicable. Each safety requirement must identify the specific hazard being
-  // mitigated and the mitigation measure imposed on the CSCI. Both fields are
-  // required — a hazard without a mitigation is an incomplete safety requirement.
+  // applicable.
+  //
+  // Doc convention for SafetyRequirement usage sites:
+  // The unnamed doc should state the hazard and the mitigation in the
+  // normative "shall" text. The Rationale doc should explain the hazard
+  // severity and reference the applicable hazard analysis (e.g., PHA, FMEA).
+  //
+  // Example:
+  // doc
+  // /* The CSCI shall inhibit all actuator commands for ≥ 500ms following
+  // * operator mode transition to prevent inadvertent actuation during
+  // * mode-change transients. */
+  // doc Rationale
+  // /* Mode-change transients cause spurious command signals in legacy
+  // * hardware. See PHA-SW-007. Severity: Catastrophic / Likelihood: Remote. */
+  //
+  // hazard and mitigation are retained as typed attributes because automated
+  // safety analysis tools query them by name.
   // ----------------------------------------
   requirement def SafetyRequirement :> SRS_Requirement {
     attribute hazard : ScalarValues::String;
@@ -366,7 +432,7 @@ package <SRSREQ> SRS_Definitions {
   // perform all required functions), reliability (correct, consistent results),
   // maintainability (ease of correction), availability (accessible when needed),
   // flexibility (adaptable to changing requirements), portability (modifiable for
-  // a new environment), reusability (usable in multiple applications), testability
+  // new environment), reusability (usable in multiple applications), testability
   // (thoroughly testable), and usability (easily learned and used). The
   // qualityAttribute field names the specific factor being quantified or
   // constrained.

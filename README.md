@@ -1,4 +1,4 @@
-# Generic_Model_v3
+# SysML v2 MBSE Reference
 
 A reference SysML v2 model demonstrating multi-file architecture with the
 Leaf + Hub namespace pattern, DI-IPSC-81433A compliant requirements using
@@ -57,9 +57,8 @@ Generic_Model_v3/
 │       └── Verification/Verification.sysml  leaf: ProgramB_Verification
 │
 ├── 05_Verification/
-│   ├── _namespace.sysml                     hub:  Verification::TestCases/Results/Traceability
+│   ├── _namespace.sysml                     hub:  Verification::TestCases, Verification::Traceability
 │   ├── TestCases.sysml                      leaf: TestCases
-│   ├── Results.sysml                        leaf: Results
 │   └── Traceability.sysml                   leaf: Traceability
 │
 └── __Tools/

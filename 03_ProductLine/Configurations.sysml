@@ -2,7 +2,7 @@
  * ProductLineConfigurations — variation points for the product line.
  * LEAF file. Standalone public package.
  */
-package ProductLineConfigurations {
+package Configurations {
     private import SharedData::*;
     private import ScalarValues::*;
 

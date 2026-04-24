@@ -2,24 +2,39 @@
 /**
  * ProgramB_Verification — Program B verification cases.
  *
- * Verification names MUST match CTest test names exactly.
- * programB_SafetyReq intentionally unverified — gap demo.
+ * LEAF FILE. Globally unique name "ProgramB_Verification".
+ * Assembled into Programs::ProgramB by 04_Programs/_namespace.sysml.
+ *
+ * Intentional gap: programB_Maintainability has no verification —
+ * demonstrates coverage gap reporting in coverage_matrix.py.
  */
 package ProgramB_Verification {
     private import ProgramB_Requirements::*;
-    private import ProgramB_Deployment::*;
+    private import ProgramB_System::*;
 
-    verification programB_Test {
-        doc /* Verifies programB_Requirement against ProgramB_System. */
-        subject sys : ProgramB_System;
-        satisfy requirement programB_Requirement;
+    verification programB_SafetyIntegrityTest {
+        doc /* Verifies PB-SAF-001 programB_SafetyIntegrity.
+               Fault injection test: 1000 single-confirmation attempts,
+               timeout scenarios, and concurrent command injection. */
+        subject sys : ProgramB_SystemDef;
+        satisfy requirement programB_SafetyIntegrity;
     }
 
-    verification programB_InterfaceTest {
-        doc /* Verifies programB_InterfaceReq against ProgramB_System. */
-        subject sys : ProgramB_System;
-        satisfy requirement programB_InterfaceReq;
+    verification programB_InterfaceStabilityInspection {
+        doc /* Verifies PB-IFC-001 programB_InterfaceStability.
+               Interface review against PB-ICD-001 and automated
+               backward-compatibility test suite execution. */
+        subject sys : ProgramB_SystemDef;
+        satisfy requirement programB_InterfaceStability;
     }
 
-    // programB_SafetyReq intentionally unverified — gap demo
+    verification programB_ResourceConstraintAnalysis {
+        doc /* Verifies PB-RES-001 programB_ResourceConstraint.
+               Peak load analysis confirming CPU <= 70% and memory <= 80%
+               over all 60-second windows. */
+        subject sys : ProgramB_SystemDef;
+        satisfy requirement programB_ResourceConstraint;
+    }
+
+    // programB_Maintainability intentionally unverified — gap demo
 }

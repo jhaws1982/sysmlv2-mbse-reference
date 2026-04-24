@@ -1,47 +1,63 @@
 /**
  * StakeholderConcerns — stakeholder concern definitions.
  *
- * LEAF FILE.  Globally unique name "StakeholderConcerns".
- * Assembled into  Stakeholders::Concerns  by  01_Stakeholders/_namespace.sysml.
+ * LEAF FILE. Globally unique name "StakeholderConcerns".
+ * Assembled into Stakeholders::Concerns by 01_Stakeholders/_namespace.sysml.
  *
- * This file EVOLVES — concerns grow as you discover what each stakeholder
- * actually needs from the system.  It is the direct input to requirement
- * definitions via  `frame concern`.  Keep it in sync with your requirements
- * Def file; a concern with no framing requirement is a gap worth tracking.
+ * SysIDE rules:
+ *   - `subject` must be FIRST in every concern def body.
+ *   - Use `actor` (not `stakeholder`) for the role membership.
  *
- * SysIDE notes:
- *   - `subject` must be the first parameter in a concern def body.
- *   - `stakeholder` membership inside a concern def causes usage-feature-typing
- *     warnings because `stakeholder def` does not produce a Classifier.
- *     Use `actor` instead — it is accepted at this position and is semantically
- *     equivalent for linking a concern to a role.
- *   - Stakeholder roles are defined as `part def` in Stakeholders.sysml.
+ * These concerns drive requirements via `frame concern` in requirement defs.
+ * A concern with no framing requirement is a traceability gap.
  */
 package StakeholderConcerns {
     private import StakeholderDefs::*;
+    private import SystemContext::*;
 
-    // ── Concerns owned by StakeholderA ────────────────────────────────────
+    // ── PrimaryOperator concerns ──────────────────────────────────────────
 
-    concern def ConcernA {
-        doc /* <Describe the need here — e.g. "StakeholderA requires that
-               the system processes requests reliably under nominal load."> */
-        subject sys;
-        actor stakeholderA : StakeholderA;
+    concern def Concern_ProcessingLatency {
+        subject sys : CoreCSCI;                        // subject FIRST
+        actor op : PrimaryOperator;
+        doc /* The operator requires that all inbound data streams are processed
+               within a time bound that does not impede operational tempo.
+               Delayed processing causes downstream stalls and missed deadlines. */
     }
 
-    concern def ConcernB {
-        doc /* <Describe the need here — e.g. "StakeholderA requires that
-               the system exposes a consistent and documented external API."> */
-        subject sys;
-        actor stakeholderA : StakeholderA;
+    concern def Concern_SystemAvailability {
+        subject sys : CoreCSCI;
+        actor op : PrimaryOperator;
+        doc /* The operator requires the system to be available throughout all
+               scheduled operational windows without unplanned interruption.
+               Downtime directly reduces mission throughput. */
     }
 
-    // ── Concerns owned by StakeholderB ────────────────────────────────────
+    // ── SystemAdministratorRole concerns ──────────────────────────────────
 
-    concern def ConcernC {
-        doc /* <Describe the need here — e.g. "StakeholderB requires that
-               all external interfaces conform to the agreed protocol standard."> */
-        subject sys;
-        actor stakeholderB : StakeholderB;
+    concern def Concern_Configurability {
+        subject sys : CoreCSCI;
+        actor admin : SystemAdministratorRole;
+        doc /* The administrator requires the ability to apply configuration
+               changes at runtime without restarting the system or modifying
+               source code. */
+    }
+
+    // ── SystemsEngineerRole concerns ──────────────────────────────────────
+
+    concern def Concern_InterfaceConformance {
+        subject sys : CoreCSCI;
+        actor eng : SystemsEngineerRole;
+        doc /* The systems engineer requires all external interfaces to conform
+               precisely to published ICDs so that integration with external
+               systems can proceed without coordination during implementation. */
+    }
+
+    concern def Concern_Testability {
+        subject sys : CoreCSCI;
+        actor eng : SystemsEngineerRole;
+        doc /* The systems engineer requires all requirements to be verifiable
+               by an approved method so that acceptance testing can produce
+               objective evidence of compliance. */
     }
 }

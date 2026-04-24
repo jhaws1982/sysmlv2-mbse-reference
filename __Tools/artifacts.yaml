@@ -1,0 +1,132 @@
+# =============================================================================
+# artifacts.yaml — OOSEM Artifact Generation Configuration
+# Generic_Model_v3
+#
+# Usage:
+#   python __Tools/generate_artifacts.py --suite all
+#   python __Tools/generate_artifacts.py --suite diagnostics
+#   python __Tools/generate_artifacts.py --script req_completeness
+#   python __Tools/generate_artifacts.py --list
+#   python __Tools/generate_artifacts.py --suite formal_docs --dry-run
+# =============================================================================
+
+model:
+  root: "../"
+  project_name: "Generic Model v3"
+  project_id: "GMV3"
+  output_root: "__output"
+
+suites:
+
+  stakeholder:
+    description: "Phase 1 — All stakeholder artifacts"
+    scripts:
+      - stakeholder_register
+      - use_case_catalog
+      - opscon_report
+      - stakeholder_req_spec
+      - stakeholder_traceability
+
+  requirements:
+    description: "Phase 2 — All system requirements artifacts"
+    scripts:
+      - sys_req_spec
+      - req_hierarchy
+      - req_traceability
+      - req_completeness
+      - req_quality
+
+  logical:
+    description: "Phase 3 — All logical architecture artifacts"
+    scripts:
+      - logical_arch_report
+      - logical_decomposition
+      - interface_catalog
+      - behavioral_summary
+      - req_allocation
+      - logical_completeness
+
+  risk:
+    description: "Risk register report — all @RiskItem annotations across the model"
+    scripts:
+      - risk_report
+
+  diagnostics:
+    description: "Gap and completeness checks only — no formal documents"
+    scripts:
+      - req_completeness
+      - req_quality
+      - logical_completeness
+
+  formal_docs:
+    description: "Formal PDF deliverables only"
+    scripts:
+      - opscon_report
+      - stakeholder_req_spec
+      - sys_req_spec
+      - logical_arch_report
+
+  all:
+    description: "Full Phase 1-3 artifact generation"
+    scripts:
+      - stakeholder_register
+      - use_case_catalog
+      - opscon_report
+      - stakeholder_req_spec
+      - stakeholder_traceability
+      - sys_req_spec
+      - req_hierarchy
+      - req_traceability
+      - req_completeness
+      - req_quality
+      - logical_arch_report
+      - logical_decomposition
+      - interface_catalog
+      - behavioral_summary
+      - req_allocation
+      - logical_completeness
+      - risk_report
+
+script_config:
+
+  sys_req_spec:
+    include_rationale: true
+    include_verification_method: true
+    include_derivation_source: true
+
+  stakeholder_req_spec:
+    include_concern_mapping: true
+    include_use_case_refs: true
+
+  req_quality:
+    ambiguous_terms:
+      - adequate
+      - as necessary
+      - sufficient
+      - appropriate
+      - timely
+      - etc.
+      - and/or
+      - if applicable
+      - where applicable
+      - to the extent practicable
+      - user-friendly
+      - easy to use
+      - reasonable
+      - as required
+    min_doc_word_count: 8
+    check_shall_pattern: true
+
+  req_completeness:
+    require_derivation_source: false
+    require_verification_link: false
+    require_allocation: true
+
+  logical_completeness:
+    require_allocated_requirement: true
+    require_perform_link: true
+
+  req_hierarchy:
+    diagram_format: "png"
+    spline: "spline"
+    node_doc_max_chars: 120

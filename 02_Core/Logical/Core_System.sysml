@@ -1,6 +1,6 @@
 /**
  * CoreSystem — top-level core system assembly.
- * LEAF file. Re-exported as Core::Architecture by 02_Core/_namespace.sysml.
+ * LEAF file. Re-exported as Core::Logical by 02_Core/_namespace.sysml.
  */
 package CoreSystem {
     private import SharedData::*;

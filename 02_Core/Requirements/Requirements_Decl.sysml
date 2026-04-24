@@ -1,159 +1,274 @@
 /**
  * RequirementsDecl — core CSCI requirement declarations (Decl side of Def/Decl split).
  *
- * LEAF file. Re-exported as Core::Requirements by 02_Core/_namespace.sysml.
+ * LEAF FILE. Globally unique name "RequirementsDecl".
+ * Assembled into Core::Requirements by 02_Core/_namespace.sysml.
  *
- * Each requirement here is a usage typed by a def from RequirementsDef,
- * with all SRS_Definitions attributes populated. The subject binds each
- * requirement to the architectural element it constrains.
+ * Doc convention (per SRS_Definitions.sysml):
+ *   Mandatory on every requirement usage:
+ *     <'REQ-ID'>      short-name identifier
+ *     doc             normative "shall" statement
+ *     doc Rationale   justification
+ *
+ * ── INTENTIONAL VALIDATION EXAMPLES ────────────────────────────────────────
+ *
+ * This file contains a mix of VALID, INCOMPLETE, and INVALID requirements
+ * so that req_validate.py and req_completeness.py produce non-trivial output:
+ *
+ *   processingCapability  — COMPLETE  (all fields, correct method)
+ *   integrationCapability — COMPLETE  (all fields, correct method)
+ *   externalDataInterface — COMPLETE  (all fields, correct method)
+ *   systemAvailability    — COMPLETE  (all fields, correct method)
+ *   programmingLanguageConstraint — COMPLETE
+ *   incompleteReq         — INCOMPLETE (missing source, priority, criteria)
+ *   invalidReq_noId       — INVALID   (no short-name ID)
+ *   invalidReq_noDoc      — INVALID   (no doc block)
+ *   invalidReq_noRationale — INVALID  (no doc Rationale)
  */
 package RequirementsDecl {
     private import RequirementsDef::*;
     private import SRS_Definitions::*;
+    private import CommonDefinitions::*;
     private import CoreSystem::*;
     private import FeatureA::*;
     private import FeatureB::*;
-    private import FeatureC::*;
 
-    //------------------------------------------------------------------
-    // Capability Requirement Declarations
-    //------------------------------------------------------------------
+    // ════════════════════════════════════════════════════════════════════════
+    // COMPLETE requirements — pass all validation checks
+    // ════════════════════════════════════════════════════════════════════════
 
     requirement <'REQ-CAP-001'> processingCapability
-        : ProcessingCapability_Def {
-        doc /* The CSCI shall process all inbound data streams within
-               50 milliseconds of receipt under nominal operating load. */
+            : ProcessingCapability_Def {
+        doc
+        /* The CSCI shall process all inbound data streams within
+         * 50 milliseconds of receipt under nominal operating load
+         * of 1000 messages per second.
+         */
+        doc Rationale
+        /* Derived from system-level response time budget SYS-PERF-003.
+         * 50 ms is the CSCI allocation after network transit time.
+         * Exceeding this bound causes downstream pipeline stalls.
+         */
         subject sys : CoreSystem_Assembly;
-        attribute :>> id             = "REQ-CAP-001";
-        attribute :>> text           = "The CSCI shall process all inbound data streams "
-                                       "within 50 milliseconds of receipt under nominal load.";
-        attribute :>> rationale      = "Derived from system-level response time budget SYS-PERF-003. "
-                                       "50 ms allocated to CSCI processing after network transit.";
         attribute :>> source         = "SYS-PERF-003";
-        attribute :>> priority       = "High";
-        attribute :>> criticality    = "Critical";
+        attribute :>> priority       = CMNDEF::LevelKind::High;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
         attribute :>> capabilityName = "InboundDataProcessing";
-        attribute :>> latency        = "50 ms maximum at 99th percentile, measured from "
-                                       "data receipt at input port to output availability.";
+        attribute :>> latency        = "50 ms maximum at 99th percentile.";
         part :>> criteria : VerificationCriteria {
+            doc
+            /* Inject 1000 messages/second for 10 minutes under nominal load.
+             * PASS if 99th-percentile latency <= 50 ms and zero messages dropped.
+             */
             attribute :>> verificationMethod = VerificationMethodKind::Test;
-            attribute :>> passFailLogic      = "PASS if measured 99th-percentile latency <= 50 ms "
-                                               "over a 10-minute run at 1000 messages/second nominal load.";
             attribute :>> threshold          = "50 ms at 99th percentile";
-            attribute :>> conditions         = "Nominal load: 1000 messages/second, "
-                                               "standard integration test environment.";
         }
     }
 
     requirement <'REQ-CAP-002'> integrationCapability
-        : IntegrationCapability_Def {
-        doc /* The CSCI shall integrate Feature A and Feature B into a unified pipeline. */
+            : IntegrationCapability_Def {
+        doc
+        /* The CSCI shall integrate Feature A and Feature B subsystems
+         * into a unified processing pipeline with no data loss under
+         * nominal operating conditions.
+         */
+        doc Rationale
+        /* A single pipeline eliminates inter-process latency and reduces
+         * integration complexity. Derived from system architecture SYS-ARCH-001.
+         */
         subject sys : CoreSystem_Assembly;
-        attribute :>> id             = "REQ-CAP-002";
-        attribute :>> text           = "The CSCI shall integrate the Feature A and Feature B "
-                                       "subsystems into a single unified processing pipeline "
-                                       "with no data loss under nominal conditions.";
-        attribute :>> rationale      = "System architecture requires a single pipeline to reduce "
-                                       "integration complexity and eliminate inter-process latency.";
         attribute :>> source         = "SYS-ARCH-001";
-        attribute :>> priority       = "High";
-        attribute :>> criticality    = "Critical";
+        attribute :>> priority       = CMNDEF::LevelKind::High;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
         attribute :>> capabilityName = "SubsystemIntegration";
-        attribute :>> performance    = "Zero data loss under nominal load; graceful degradation "
-                                       "under overload with defined queue depth limits.";
+        attribute :>> performance    = "Zero data loss under nominal load.";
         part :>> criteria : VerificationCriteria {
+            doc
+            /* Run both subsystems under nominal load for 30 minutes.
+             * PASS if zero messages lost and queue depth stays <= 1000.
+             */
             attribute :>> verificationMethod = VerificationMethodKind::Test;
-            attribute :>> passFailLogic      = "PASS if zero messages lost during 30-minute "
-                                               "nominal load test and queue depth remains within limits.";
-            attribute :>> threshold          = "0 messages lost; queue depth <= 1000 messages";
-            attribute :>> conditions         = "Nominal load profile, both subsystems active.";
+            attribute :>> threshold          = "0 messages lost; queue <= 1000";
         }
     }
-
-    //------------------------------------------------------------------
-    // Interface Requirement Declarations
-    //------------------------------------------------------------------
 
     requirement <'REQ-IFC-001'> externalDataInterface
-        : ExternalDataInterface_Def {
-        doc /* External data interface between Core and the external data source. */
+            : ExternalDataInterface_Def {
+        doc
+        /* The CSCI shall implement a binary message interface to the
+         * external data source conforming to ICD-EXT-001 revision C.
+         */
+        doc Rationale
+        /* ExternalDataSource uses a fixed binary protocol in ICD-EXT-001
+         * that cannot be modified. Conformance is a contractual criterion.
+         */
         subject featureA : FeatureA_Component;
-        attribute :>> id              = "REQ-IFC-001";
-        attribute :>> text            = "The CSCI shall implement a binary message interface "
-                                        "to the external data source conforming to ICD-EXT-001.";
-        attribute :>> rationale       = "External data source uses a fixed binary protocol "
-                                        "defined in ICD-EXT-001 which cannot be modified.";
-        attribute :>> source          = "ICD-EXT-001";
-        attribute :>> priority        = "High";
-        attribute :>> criticality     = "Critical";
+        attribute :>> source          = "ICD-EXT-001 Rev C";
+        attribute :>> priority        = CMNDEF::LevelKind::High;
+        attribute :>> criticality     = CMNDEF::LevelKind::High;
         attribute :>> interfaceName   = "ExternalDataSource_Interface";
-        attribute :>> primaryEntity   = "CoreSystem_CSCI";
+        attribute :>> primaryEntity   = "CoreCSCI";
         attribute :>> secondaryEntity = "ExternalDataSource";
         attribute :>> protocol        = "Binary framed message protocol per ICD-EXT-001";
-        attribute :>> messageFormat   = "Fixed-length binary frames, 256-byte header + variable payload";
+        attribute :>> messageFormat   = "256-byte header + variable payload + 4-byte CRC";
         attribute :>> dataName        = "ExternalDataMessage";
         attribute :>> dataType        = "Binary framed message";
-        attribute :>> format          = "256-byte header, variable-length payload, 4-byte CRC";
         part :>> criteria : VerificationCriteria {
+            doc
+            /* Exercise all ICD-EXT-001 §3 message types with nominal and
+             * boundary values (10 000 total messages).
+             * PASS if zero encoding or decoding errors observed.
+             */
             attribute :>> verificationMethod = VerificationMethodKind::Test;
-            attribute :>> passFailLogic      = "PASS if all message types in ICD-EXT-001 §3 "
-                                               "are correctly encoded and decoded with zero errors "
-                                               "over 10000 test messages.";
-            attribute :>> threshold          = "0 encoding/decoding errors in 10000 messages";
-            attribute :>> conditions         = "All message types exercised; nominal and boundary values.";
+            attribute :>> threshold          = "0 errors in 10 000 messages";
         }
     }
-
-    //------------------------------------------------------------------
-    // Quality Requirement Declarations
-    //------------------------------------------------------------------
 
     requirement <'REQ-QUA-001'> systemAvailability
-        : SystemAvailability_Def {
-        doc /* System availability requirement for the core CSCI. */
+            : SystemAvailability_Def {
+        doc
+        /* The CSCI shall achieve a minimum operational availability of
+         * 99.5% over any 30-day measurement period.
+         */
+        doc Rationale
+        /* Mission profile requires near-continuous operation. Planned
+         * maintenance windows must not exceed 0.5% of the measurement period.
+         * Derived from SYS-RELY-001.
+         */
         subject sys : CoreSystem_Assembly;
-        attribute :>> id                 = "REQ-QUA-001";
-        attribute :>> text               = "The CSCI shall achieve a minimum operational "
-                                           "availability of 99.5% over any 30-day measurement period.";
-        attribute :>> rationale          = "Mission profile requires continuous operation with "
-                                           "planned maintenance windows not exceeding 0.5%.";
-        attribute :>> source             = "SYS-RELY-001";
-        attribute :>> priority           = "High";
-        attribute :>> criticality        = "High";
-        attribute :>> qualityAttribute   = "Availability";
+        attribute :>> source           = "SYS-RELY-001";
+        attribute :>> priority         = CMNDEF::LevelKind::High;
+        attribute :>> criticality      = CMNDEF::LevelKind::High;
+        attribute :>> qualityAttribute = "Availability";
         part :>> criteria : VerificationCriteria {
+            doc
+            /* Reliability analysis using component MTBF data, 30-day window,
+             * normal operating environment, planned maintenance excluded.
+             * PASS if predicted availability >= 99.5%.
+             */
             attribute :>> verificationMethod = VerificationMethodKind::Analysis;
-            attribute :>> passFailLogic      = "PASS if reliability analysis demonstrates "
-                                               "predicted availability >= 99.5% over 30-day window.";
-            attribute :>> threshold          = "99.5% availability over 30-day period";
-            attribute :>> conditions         = "Normal operating environment; planned maintenance excluded.";
+            attribute :>> threshold          = "99.5% over 30-day period";
         }
     }
 
-    //------------------------------------------------------------------
-    // Design Constraint Declarations
-    //------------------------------------------------------------------
-
     requirement <'REQ-DSN-001'> programmingLanguageConstraint
-        : ProgrammingLanguageConstraint_Def {
-        doc /* Programming language constraint for CSCI implementation. */
+            : ProgrammingLanguageConstraint_Def {
+        doc
+        /* The CSCI shall be implemented in C++ (ISO/IEC 14882:2017) or
+         * Python 3.10+ as specified in the Software Development Plan.
+         */
+        doc Rationale
+        /* Organizational toolchain and code review processes support only
+         * these languages. No waiver exists for other languages.
+         * Derived from SDP-001 §4.2.
+         */
         subject sys : CoreSystem_Assembly;
-        attribute :>> id                = "REQ-DSN-001";
-        attribute :>> text              = "The CSCI shall be implemented in C++ (ISO/IEC 14882:2017) "
-                                          "or Python 3.10+ as specified in the Software Development Plan.";
-        attribute :>> rationale         = "Organizational standard languages; toolchain and code review "
-                                          "processes are established for these languages only.";
-        attribute :>> source            = "SDP-001 §4.2";
-        attribute :>> priority          = "Medium";
-        attribute :>> criticality       = "Medium";
-        attribute :>> constraintText    = "C++ (ISO/IEC 14882:2017) or Python 3.10+ only. "
-                                          "No other languages permitted without waiver.";
+        attribute :>> source         = "SDP-001 §4.2";
+        attribute :>> priority       = CMNDEF::LevelKind::Medium;
+        attribute :>> criticality    = CMNDEF::LevelKind::Medium;
+        attribute :>> constraintText = "C++ (ISO/IEC 14882:2017) or Python 3.10+ only.";
         part :>> criteria : VerificationCriteria {
+            doc
+            /* Code review at CDR confirms all source files use approved languages.
+             * PASS if 100% of source files are in approved languages with no waivers.
+             */
             attribute :>> verificationMethod = VerificationMethodKind::Inspection;
-            attribute :>> passFailLogic      = "PASS if code review confirms all source files "
-                                               "use only approved languages with no waivers outstanding.";
-            attribute :>> threshold          = "100% of source files in approved languages";
-            attribute :>> conditions         = "Final code review prior to CDR.";
+            attribute :>> threshold          = "100% approved languages";
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // INCOMPLETE requirement — passes VALID checks but has completeness gaps.
+    // @RiskItem demonstrates risk annotation on a requirement.
+    // ════════════════════════════════════════════════════════════════════════
+
+    @RiskItem {
+        riskId      = "RISK-CORE-REQ-001";
+        title       = "BIT requirement lacks acceptance criteria";
+        category    = RiskCategory::Technical;
+        probability = LevelKind::Medium;
+        impact      = LevelKind::Medium;
+        exposure    = 4;
+        status      = RiskStatus::Open;
+        description = "REQ-CAP-003 (incompleteReq) has no defined verification
+                       criteria or threshold. Without these, acceptance testing
+                       for the BIT capability cannot be objectively assessed.";
+        mitigation  = "Complete the verification criteria for REQ-CAP-003 before CDR.
+                       Assign to systems engineer to draft test procedure.";
+        owner       = "Systems Engineer";
+    }
+
+    // INCOMPLETE requirement — passes VALID checks but has completeness gaps.
+    // Missing: source, priority, criticality, criteria.
+    // req_validate.py will report this as INCOMPLETE.
+    // ════════════════════════════════════════════════════════════════════════
+
+    requirement <'REQ-CAP-003'> incompleteReq
+            : ProcessingCapability_Def {
+        doc
+        /* The CSCI shall provide a built-in self-test capability that
+         * verifies all subsystem interfaces during initialization.
+         */
+        doc Rationale
+        /* Early fault detection during initialization prevents the system
+         * from entering operational mode with undetected hardware faults.
+         */
+        subject sys : CoreSystem_Assembly;
+        attribute :>> capabilityName = "BuiltInSelfTest";
+        attribute :>> timing         = "Completes within 30 seconds of power-on.";
+        // source, priority, criticality intentionally omitted — INCOMPLETE demo
+        // criteria intentionally omitted — INCOMPLETE demo
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // INVALID requirements — fail VALID checks.
+    // These demonstrate what req_validate.py catches.
+    // ════════════════════════════════════════════════════════════════════════
+
+    // INVALID: no short-name ID (HasId violation)
+    requirement invalidReq_noId : ProcessingCapability_Def {
+        doc
+        /* The CSCI shall log all interface transactions with sufficient
+         * detail to support post-event audit and replay.
+         */
+        doc Rationale
+        /* Audit logs are required by the program compliance framework and
+         * are essential for incident investigation.
+         */
+        subject sys : CoreSystem_Assembly;
+        attribute :>> capabilityName = "AuditLogging";
+        attribute :>> source         = "COMPLIANCE-001";
+        attribute :>> priority       = CMNDEF::LevelKind::High;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
+    }
+
+    // INVALID: no doc block (HasText violation)
+    requirement <'REQ-CAP-005'> invalidReq_noDoc
+            : ProcessingCapability_Def {
+        doc Rationale
+        /* Throughput is a contractual performance threshold derived from
+         * the program operational concept document.
+         */
+        subject sys : CoreSystem_Assembly;
+        attribute :>> capabilityName = "PeakThroughput";
+        attribute :>> source         = "PA-OCD §4.2";
+        attribute :>> priority       = CMNDEF::LevelKind::High;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
+        attribute :>> throughput     = "5000 messages/second minimum.";
+    }
+
+    // INVALID: no doc Rationale block (HasRationale violation)
+    requirement <'REQ-QUA-002'> invalidReq_noRationale
+            : SystemAvailability_Def {
+        doc
+        /* The CSCI shall support online diagnostics accessible to the
+         * system administrator without interrupting operational processing.
+         */
+        // doc Rationale intentionally absent — INVALID demo
+        subject sys : CoreSystem_Assembly;
+        attribute :>> qualityAttribute = "Maintainability";
+        attribute :>> source           = "SDP-001 §5.1";
+        attribute :>> priority         = CMNDEF::LevelKind::Medium;
+        attribute :>> criticality      = CMNDEF::LevelKind::Medium;
     }
 }
