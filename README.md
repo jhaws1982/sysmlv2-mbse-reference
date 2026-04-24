@@ -9,7 +9,7 @@ Leaf + Hub namespace pattern, DI-IPSC-81433A compliant requirements using
 ## File Layout
 
 ```
-Generic_Model_v3/
+sysmlv2-mbse-reference/
 │
 ├── Model.sysml                              ← root index package
 │

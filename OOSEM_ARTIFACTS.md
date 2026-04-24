@@ -1,5 +1,5 @@
 # OOSEM Artifact Inventory
-## Generic_Model_v3
+## SysML v2 MBSE Reference
 
 This document catalogues every OOSEM artifact produced by the toolchain for
 this model. It is the reference for modelers and reviewers: what exists, which

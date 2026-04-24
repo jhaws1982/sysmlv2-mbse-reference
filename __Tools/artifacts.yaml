@@ -1,6 +1,6 @@
 # =============================================================================
 # artifacts.yaml — OOSEM Artifact Generation Configuration
-# Generic_Model_v3
+# SysML v2 MBSE Reference
 #
 # Usage:
 #   python __Tools/generate_artifacts.py --suite all
@@ -12,7 +12,7 @@
 
 model:
   root: "../"
-  project_name: "Generic Model v3"
+  project_name: "SysML v2 MBSE Reference"
   project_id: "GMV3"
   output_root: "__output"
 

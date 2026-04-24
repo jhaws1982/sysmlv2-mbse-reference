@@ -1,5 +1,5 @@
 # Model Structure Guide
-## Generic_Model_v3
+## SysML v2 MBSE Reference
 
 Canonical directory layout, import rules, and authoring conventions.
 Consult this file when deciding where a new element belongs.
@@ -23,7 +23,7 @@ it relates to, not in a separate tree.
 ## Directory Layout
 
 ```
-Generic_Model_v3/
+sysmlv2-mbse-reference/
 │
 ├── 00_Shared/
 │   ├── SRS_Definitions.sysml     ← Requirement def library (DI-IPSC-81433A)
