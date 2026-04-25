@@ -68,35 +68,71 @@ def parse_args(description: str) -> argparse.Namespace:
 
 # ── Model loading ─────────────────────────────────────────────────────────────
 
+_EXCLUDED_DIRS = {'.venv', '__Tools', '.git', '.claude', '__pycache__', 'node_modules'}
+
+
+def collect_user_sysml_files(model_dir: Path) -> list[Path]:
+    """Return .sysml files under model_dir, skipping tool/venv/git directories."""
+    return [
+        f for f in model_dir.rglob("*.sysml")
+        if not any(part in _EXCLUDED_DIRS for part in f.relative_to(model_dir).parts)
+    ]
+
+
 @contextmanager
 def load_model(model_dir: Path):
     """
-    Context manager that opens a SysIDE model. Matches the pattern used by
-    all working tools in this codebase:
+    Context manager that opens a SysIDE model. Passes only user .sysml files
+    to open_model (excluding .venv and tool directories).
+
+    Use iter_user_elements(model, model_dir) for traversal to scope results
+    to user-defined elements only.
 
         with load_model(model_dir) as model:
             diags = model.diagnostics
             if diags.contains_errors():
                 print("WARNING: ...")
-            for top in model.top_elements_from(str(model_dir)):
-                ...
-
-    Diagnostics are printed as warnings but never cause exit — the .venv /
-    site-packages standard library errors are a known SysIDE 0.8.x issue
-    and do not affect model traversal. top_elements_from() scopes to user
-    files only, keeping .venv elements out of results.
+            for top in iter_user_elements(model, model_dir):
+                collect_typed(top, syside.SomeType.STD, results)
     """
+    model_dir = model_dir.resolve()
     if not SYSIDE_AVAILABLE:
         print("ERROR: syside (SysIDE Automator) is not installed.")
         sys.exit(1)
     if not model_dir.exists():
         print(f"ERROR: Model directory not found: {model_dir}")
         sys.exit(1)
-    if not list(model_dir.rglob("*.sysml")):
+    user_files = collect_user_sysml_files(model_dir)
+    if not user_files:
         print(f"ERROR: No .sysml files found under {model_dir}")
         sys.exit(1)
-    with open_model(str(model_dir)) as model:
+    with open_model(user_files, allow_errors=True) as model:
         yield model
+
+
+def iter_user_elements(model, model_dir: Path):
+    """
+    Yield top-level model elements from user directories only.
+
+    Use this instead of model.top_elements_from(model_dir) to avoid
+    collecting stdlib elements from .venv when .venv is inside model_dir.
+    Iterates each non-excluded top-level directory/file and calls
+    top_elements_from() on each, so elements from .venv are never returned.
+
+    No id()-based deduplication: Python GC can reuse freed object IDs across
+    directory iterations, causing false-positive deduplication. Since each
+    top-level directory is distinct (no overlapping paths), there are no
+    true duplicates to guard against.
+    """
+    model_dir = model_dir.resolve()  # must be absolute for top_elements_from
+    for item in sorted(model_dir.iterdir()):
+        if item.name in _EXCLUDED_DIRS or item.name.startswith('.'):
+            continue
+        if item.is_dir() or (item.is_file() and item.suffix == '.sysml'):
+            try:
+                yield from model.top_elements_from(str(item))
+            except Exception:
+                pass
 
 
 # ── Traversal helpers ─────────────────────────────────────────────────────────
