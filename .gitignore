@@ -1,4 +1,5 @@
 __output
 .claude
+.env
 __pycache__/
 *.pyc
