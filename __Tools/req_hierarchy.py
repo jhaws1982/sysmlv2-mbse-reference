@@ -26,7 +26,6 @@ except ImportError:
 COLORS = {
     "highlight": "#2C7BB6",
     "ancestor":  "#ABD9E9",
-    "sibling":   "#FEE090",
     "child":     "#E8F4FD",
 }
 FONT = "Helvetica"
@@ -39,6 +38,7 @@ class ReqNode:
     doc: str
     def_type: str
     children: list = field(default_factory=list)
+    parent: "ReqNode | None" = field(default=None, repr=False)
 
     @property
     def label(self):
@@ -49,15 +49,16 @@ class ReqNode:
         return "n_" + re.sub(r"[^A-Za-z0-9_]", "_", self.req_id or self.name)
 
 
-def build_node(req) -> ReqNode:
+def build_node(req, parent=None) -> ReqNode:
     node = ReqNode(
         req_id=get_short_name(req), name=get_declared_name(req),
         doc=collapse_doc(get_unnamed_doc(req)), def_type=get_def_type_name(req),
+        parent=parent,
     )
     try:
         for m in req.owned_members.collect():
             if m.isinstance(syside.RequirementUsage.STD) and is_plain_req(m):
-                node.children.append(build_node(m.cast(syside.RequirementUsage.STD)))
+                node.children.append(build_node(m.cast(syside.RequirementUsage.STD), parent=node))
     except Exception:
         pass
     return node
@@ -79,56 +80,52 @@ def collect_roots(model, model_dir) -> list:
     return roots
 
 
-def _node_dot(node, color, max_chars):
-    doc = (node.doc[:max_chars] + "...") if len(node.doc) > max_chars else node.doc
-    doc = doc.replace("\\", "\\\\").replace('"', '\\"')
+def _node_dot(node, color, max_chars, show_doc=True):
     lbl = node.label.replace("\\", "\\\\").replace('"', '\\"')
-    label = f"{lbl}\\n{doc}" if doc else lbl
+    if show_doc and node.doc:
+        doc = (node.doc[:max_chars] + "...") if len(node.doc) > max_chars else node.doc
+        doc = doc.replace("\\", "\\\\").replace('"', '\\"')
+        label = f"{lbl}\\n{doc}"
+    else:
+        label = lbl
     return (f'    {node.node_id} [label="{label}" fillcolor="{color}" '
             f'style="rounded,filled" fontname="{FONT}" fontsize="10" shape="box"]')
 
 
-def render_diagram(root, highlight, out_path, cfg):
-    fmt     = cfg.get("diagram_format", "png")
-    splines = cfg.get("spline", "spline")
-    max_ch  = cfg.get("node_doc_max_chars", 120)
+def render_diagram(highlight, out_path, cfg):
+    fmt           = cfg.get("diagram_format", "png")
+    splines       = cfg.get("spline", "spline")
+    max_ch        = cfg.get("node_doc_max_chars", 120)
+    show_children = cfg.get("show_children", True)
+    show_doc      = cfg.get("show_doc", True)
+    rankdir       = cfg.get("rankdir", "LR")
 
-    def find_path(node, target):
-        if node.node_id == target.node_id:
-            return [node]
-        for c in node.children:
-            p = find_path(c, target)
-            if p:
-                return [node] + p
-        return []
-
-    path = find_path(root, highlight) or [root]
-    ancestor_ids = {n.node_id for n in path[:-1]}
     dot_nodes, dot_edges = [], []
 
-    def add_level(parent, current):
-        siblings = parent.children if parent else [current]
-        for sib in siblings:
-            if sib.node_id == highlight.node_id:
-                color = COLORS["highlight"]
-            elif sib.node_id in ancestor_ids:
-                color = COLORS["ancestor"]
-            else:
-                color = COLORS["sibling"]
-            dot_nodes.append(_node_dot(sib, color, max_ch))
-            if parent:
-                dot_edges.append(f"    {parent.node_id} -> {sib.node_id}")
-        if current.node_id == highlight.node_id:
-            for child in current.children:
-                dot_nodes.append(_node_dot(child, COLORS["child"], max_ch))
-                dot_edges.append(f"    {current.node_id} -> {child.node_id}")
+    # Walk parent chain to root (stored root-first)
+    ancestors = []
+    node = highlight.parent
+    while node is not None:
+        ancestors.insert(0, node)
+        node = node.parent
 
-    for i, node in enumerate(path):
-        add_level(path[i - 1] if i > 0 else None, node)
+    for anc in ancestors:
+        dot_nodes.append(_node_dot(anc, COLORS["ancestor"], max_ch, show_doc))
+    for i in range(len(ancestors) - 1):
+        dot_edges.append(f"    {ancestors[i].node_id} -> {ancestors[i + 1].node_id}")
+    if ancestors:
+        dot_edges.append(f"    {ancestors[-1].node_id} -> {highlight.node_id}")
+
+    dot_nodes.append(_node_dot(highlight, COLORS["highlight"], max_ch, show_doc))
+
+    if show_children:
+        for child in highlight.children:
+            dot_nodes.append(_node_dot(child, COLORS["child"], max_ch, show_doc))
+            dot_edges.append(f"    {highlight.node_id} -> {child.node_id}")
 
     dot = "\n".join([
         "digraph ReqHierarchy {",
-        f'    graph [rankdir="TB" fontname="{FONT}" splines="{splines}" pad="0.5"]',
+        f'    graph [rankdir="{rankdir}" fontname="{FONT}" splines="{splines}" pad="0.5"]',
         f'    edge  [arrowhead="open" fontname="{FONT}" fontsize="9"]',
         "",
     ] + dot_nodes + [""] + dot_edges + ["}"])
@@ -149,16 +146,16 @@ def render_all(roots, diagrams_dir, cfg):
     rendered = {}
     fmt = cfg.get("diagram_format", "png")
 
-    def do_tree(root, node):
+    def do_tree(node):
         safe = re.sub(r"[^A-Za-z0-9_]", "_", node.label or node.name)
         out = diagrams_dir / f"req_{safe}.{fmt}"
-        if render_diagram(root, node, out, cfg):
+        if render_diagram(node, out, cfg):
             rendered[node.node_id] = out
         for child in node.children:
-            do_tree(root, child)
+            do_tree(child)
 
     for root in roots:
-        do_tree(root, root)
+        do_tree(root)
     return rendered
 
 
@@ -215,8 +212,8 @@ def main():
             rendered = render_all(roots, args.diagrams_dir, cfg)
             if rendered:
                 lines.append(md_heading("Diagrams", 2))
-                lines.append("Blue = focal node  Light blue = ancestors  "
-                              "Amber = siblings  Pale blue = direct children\n")
+                lines.append("Blue = focal node  Light blue = all ancestors to root  "
+                              "Pale blue = direct children\n")
                 for root in sorted(roots, key=lambda r: r.label):
                     if root.node_id in rendered:
                         rel = rendered[root.node_id].relative_to(args.output)

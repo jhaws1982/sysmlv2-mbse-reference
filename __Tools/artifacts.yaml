@@ -128,5 +128,8 @@ script_config:
 
   req_hierarchy:
     diagram_format: "png"
+    rankdir: "LR"
     spline: "spline"
     node_doc_max_chars: 120
+    show_children: true
+    show_doc: false
