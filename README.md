@@ -6,6 +6,31 @@ Leaf + Hub namespace pattern, DI-IPSC-81433A compliant requirements using
 
 ---
 
+## Python Setup
+
+```bash
+# 1. Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install Python dependencies
+pip install -r __Tools/requirements.txt
+
+# 3. Install system packages required for diagrams and PDF output
+sudo apt install pandoc graphviz
+```
+
+`syside` requires a license file. Place it at the path syside expects (see
+`syside_license` package docs or your Sensmetry license delivery email).
+
+PDF generation uses `pandoc --pdf-engine=weasyprint`. The `weasyprint` binary
+is resolved from the active Python environment, so the venv must be activated
+(or scripts run via `python` from the venv) for PDF output to work.
+Diagram generation uses the `dot` CLI from graphviz; without it, diagrams are
+skipped and a notice is printed.
+
+---
+
 ## File Layout
 
 ```

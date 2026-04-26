@@ -1,0 +1,11 @@
+# Python dependencies for the OOSEM artifact generation tools.
+#
+# System packages also required (install via apt or equivalent):
+#   pandoc     — Markdown-to-PDF conversion (apt install pandoc)
+#   graphviz   — diagram rendering via the 'dot' CLI (apt install graphviz)
+
+syside>=0.8.8
+syside_license>=0.3.5
+weasyprint>=68.1
+PyYAML>=6.0.3
+pytest>=9.0.3
