@@ -72,7 +72,7 @@ package ProgramB_Requirements {
              * PASS if (1) no safety-critical command executes with fewer than
              * two confirmations, and (2) all attempts appear in the audit log.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "0 inadvertent executions in 1000 tests; 100% audit log coverage";
         }
     }
@@ -107,7 +107,7 @@ package ProgramB_Requirements {
              * PASS if all interfaces carry a semantic version header and
              * 100% of backward-compatibility tests pass.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Inspection;
+            attribute :>> verificationMethod = VerificationMethodKind::inspect;
             attribute :>> threshold          = "100% interfaces versioned; 100% backward-compat pass rate";
         }
     }
@@ -136,7 +136,7 @@ package ProgramB_Requirements {
              * PASS if resource utilization analysis and stress test both
              * confirm CPU <= 70% and memory <= 80% over all 60-second windows.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Analysis;
+            attribute :>> verificationMethod = VerificationMethodKind::analyze;
             attribute :>> threshold          = "CPU <= 70%; Memory <= 80%; no 60-s window exceeds limits";
         }
     }
@@ -165,7 +165,7 @@ package ProgramB_Requirements {
              * state transitions are documented and a structured diagnostic
              * procedure can be derived from delivered documentation alone.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Analysis;
+            attribute :>> verificationMethod = VerificationMethodKind::analyze;
             attribute :>> threshold          = "100% coverage of interfaces, data flows, state transitions";
         }
     }

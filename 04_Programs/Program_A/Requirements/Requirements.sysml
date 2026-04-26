@@ -72,7 +72,7 @@ package ProgramA_Requirements {
              * PASS if throughput >= 5000 msg/s, 99th-percentile latency
              * <= 75 ms, and zero messages are lost.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "5000 msg/s; latency <= 75 ms at P99; 0 message loss";
         }
     }
@@ -100,7 +100,7 @@ package ProgramA_Requirements {
              * PA-HWS-001 and OS is RHEL 9.x compatible.
              * PASS if 100% compliance with PA-HWS-001 hardware spec is confirmed.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Inspection;
+            attribute :>> verificationMethod = VerificationMethodKind::inspect;
             attribute :>> threshold          = "100% compliance with PA-HWS-001 hardware spec";
         }
     }
@@ -129,7 +129,7 @@ package ProgramA_Requirements {
              * PA-REG-001 requirements.
              * PASS if compliance matrix shows 100% coverage with no open waivers.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Inspection;
+            attribute :>> verificationMethod = VerificationMethodKind::inspect;
             attribute :>> threshold          = "100% PA-REG-001 compliance; zero open waivers";
         }
     }
@@ -158,7 +158,7 @@ package ProgramA_Requirements {
              * PASS if all parameters are correctly applied with zero source
              * code changes required.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "All 5 site parameters applied correctly; zero source changes";
         }
     }

@@ -263,17 +263,17 @@ def _find_criteria_part_def(req_def):
 # Allowed verificationMethod values per type — keyed by definition simple name.
 # These mirror the assert constraints in SRS_Definitions.sysml.
 _ALLOWED_METHODS: dict[str, set[str]] = {
-    "CapabilityRequirement":     {"Test", "Analysis"},
-    "InterfaceRequirement":      {"Test", "Inspection", "Demonstration"},
-    "DataRequirement":           {"Analysis", "Inspection"},
-    "SafetyRequirement":         {"Analysis", "Test", "Inspection"},
-    "SecurityRequirement":       {"Analysis", "Test"},
-    "EnvironmentalRequirement":  {"Test", "Analysis"},
-    "ResourceRequirement":       {"Analysis", "Inspection"},
-    "QualityRequirement":        {"Test", "Analysis"},
-    "DesignConstraintRequirement": {"Inspection", "Analysis"},
-    "AdaptationRequirement":     {"Test", "Analysis"},
-    "COTSRequirement":           {"Inspection", "Analysis"},
+    "CapabilityRequirement":     {"test", "analyze"},
+    "InterfaceRequirement":      {"test", "inspect", "demo"},
+    "DataRequirement":           {"analyze", "inspect"},
+    "SafetyRequirement":         {"analyze", "test", "inspect"},
+    "SecurityRequirement":       {"analyze", "test"},
+    "EnvironmentalRequirement":  {"test", "analyze"},
+    "ResourceRequirement":       {"analyze", "inspect"},
+    "QualityRequirement":        {"test", "analyze"},
+    "DesignConstraintRequirement": {"inspect", "analyze"},
+    "AdaptationRequirement":     {"test", "analyze"},
+    "COTSRequirement":           {"inspect", "analyze"},
 }
 
 

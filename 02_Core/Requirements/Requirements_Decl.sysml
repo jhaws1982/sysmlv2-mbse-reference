@@ -60,7 +60,7 @@ package RequirementsDecl {
             /* Inject 1000 messages/second for 10 minutes under nominal load.
              * PASS if 99th-percentile latency <= 50 ms and zero messages dropped.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "50 ms at 99th percentile";
         }
     }
@@ -87,7 +87,7 @@ package RequirementsDecl {
             /* Run both subsystems under nominal load for 30 minutes.
              * PASS if zero messages lost and queue depth stays <= 1000.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "0 messages lost; queue <= 1000";
         }
     }
@@ -119,7 +119,7 @@ package RequirementsDecl {
              * boundary values (10 000 total messages).
              * PASS if zero encoding or decoding errors observed.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Test;
+            attribute :>> verificationMethod = VerificationMethodKind::test;
             attribute :>> threshold          = "0 errors in 10 000 messages";
         }
     }
@@ -146,7 +146,7 @@ package RequirementsDecl {
              * normal operating environment, planned maintenance excluded.
              * PASS if predicted availability >= 99.5%.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Analysis;
+            attribute :>> verificationMethod = VerificationMethodKind::analyze;
             attribute :>> threshold          = "99.5% over 30-day period";
         }
     }
@@ -172,7 +172,7 @@ package RequirementsDecl {
             /* Code review at CDR confirms all source files use approved languages.
              * PASS if 100% of source files are in approved languages with no waivers.
              */
-            attribute :>> verificationMethod = VerificationMethodKind::Inspection;
+            attribute :>> verificationMethod = VerificationMethodKind::inspect;
             attribute :>> threshold          = "100% approved languages";
         }
     }

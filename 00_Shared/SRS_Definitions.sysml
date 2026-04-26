@@ -49,14 +49,7 @@ library package <SRSREQ> SRS_Definitions {
   // Use 'public import' only in namespace hub files intended to re-export names.
   private import ScalarValues::*;
   private import CommonDefinitions::*;
-
-  // Allowed verification methods per DI-IPSC-81433A §4.
-  enum def VerificationMethodKind {
-    Test;
-    Analysis;
-    Inspection;
-    Demonstration;
-  }
+  private import VerificationCases::VerificationMethodKind;
 
   // ----------------------------------------
   // ISQ Quantity Kind Enumeration
@@ -110,7 +103,7 @@ library package <SRSREQ> SRS_Definitions {
   // * at 10 req/s. The test passes if ≥ 99% of responses arrive within
   // * 200ms and no error responses are returned.
   // */
-  // attribute verificationMethod = VerificationMethodKind::Test;
+  // attribute verificationMethod = VerificationMethodKind::test;
   // attribute threshold = "200ms at p99";
   // }
   //
@@ -254,8 +247,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint CapabilityVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 
@@ -281,9 +274,9 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint InterfaceVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Inspection or
-      criteria.verificationMethod == VerificationMethodKind::Demonstration
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::inspect or
+      criteria.verificationMethod == VerificationMethodKind::demo
     }
   }
 
@@ -302,8 +295,8 @@ library package <SRSREQ> SRS_Definitions {
   requirement def DataRequirement :> DataAspect {
     assert constraint DataVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Analysis or
-      criteria.verificationMethod == VerificationMethodKind::Inspection
+      criteria.verificationMethod == VerificationMethodKind::analyze or
+      criteria.verificationMethod == VerificationMethodKind::inspect
     }
   }
 
@@ -342,9 +335,9 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint SafetyVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Analysis or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Inspection
+      criteria.verificationMethod == VerificationMethodKind::analyze or
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::inspect
     }
   }
 
@@ -369,8 +362,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint SecurityVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Analysis or
-      criteria.verificationMethod == VerificationMethodKind::Test
+      criteria.verificationMethod == VerificationMethodKind::analyze or
+      criteria.verificationMethod == VerificationMethodKind::test
     }
   }
 
@@ -393,8 +386,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint EnvironmentalVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 
@@ -418,8 +411,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint ResourceVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Analysis or
-      criteria.verificationMethod == VerificationMethodKind::Inspection
+      criteria.verificationMethod == VerificationMethodKind::analyze or
+      criteria.verificationMethod == VerificationMethodKind::inspect
     }
   }
 
@@ -444,8 +437,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint QualityVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 
@@ -470,8 +463,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint ConstraintVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Inspection or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::inspect or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 
@@ -494,8 +487,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint AdaptationVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Test or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::test or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 
@@ -520,8 +513,8 @@ library package <SRSREQ> SRS_Definitions {
 
     assert constraint COTSVerificationValid {
       not (criteria hastype VerificationCriteria) or
-      criteria.verificationMethod == VerificationMethodKind::Inspection or
-      criteria.verificationMethod == VerificationMethodKind::Analysis
+      criteria.verificationMethod == VerificationMethodKind::inspect or
+      criteria.verificationMethod == VerificationMethodKind::analyze
     }
   }
 }
