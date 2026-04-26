@@ -79,11 +79,12 @@ def main():
         print(f"ERROR: Config not found: {cfg_path}")
         sys.exit(1)
 
-    config   = load_config(cfg_path)
-    root     = model_root(config, cfg_path)
-    suites   = config.get("suites", {})
-    scr_cfg  = config.get("script_config", {})
-    project  = config.get("model", {}).get("project_name", "")
+    config     = load_config(cfg_path)
+    root       = model_root(config, cfg_path)
+    suites     = config.get("suites", {})
+    scr_cfg    = config.get("script_config", {})
+    report_cfg = config.get("report", {})
+    project    = config.get("model", {}).get("project_name", "")
 
     if args.list:
         print(f"\nAvailable suites in {cfg_path.name}:\n")
@@ -121,7 +122,9 @@ def main():
 
     for name in scripts_to_run:
         sp = script_path(name)
-        cfg = scr_cfg.get(name, {})
+        cfg = dict(scr_cfg.get(name, {}))
+        if report_cfg:
+            cfg["report"] = report_cfg
         if args.dry_run:
             mark = "✓" if sp.exists() else "✗ MISSING"
             print(f"  {mark}  {name}.py")

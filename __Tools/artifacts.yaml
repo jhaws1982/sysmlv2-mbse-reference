@@ -16,6 +16,22 @@ model:
   project_id: "GMV3"
   output_root: "__output"
 
+# ── Report formatting ─────────────────────────────────────────────────────────
+# Configuration for formal PDF document generation (title page, headers/footers).
+# logo_path: path to logo image, relative to repo root or absolute.
+#            Recommended aspect ratio: ~3:1 wide (e.g. 300×100 px PNG).
+# font_family: CSS font-family string (e.g. "Arial, sans-serif").
+# distribution_statement: text shown in header/footer and title page box.
+report:
+  org_name: ""
+  org_website: ""
+  org_email: ""
+  logo_path: ""
+  font_family: "Georgia, serif"
+  distribution_statement: ""
+  doc_version: "1.0"
+  author: ""
+
 suites:
 
   stakeholder:
