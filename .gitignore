@@ -1,2 +1,4 @@
 __output
 .claude
+__pycache__/
+*.pyc
