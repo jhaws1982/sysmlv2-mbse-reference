@@ -41,12 +41,19 @@ def get_parent_def_names(part_def) -> list:
 
 
 def get_part_usages_in_def(part_def) -> list:
-    """Return owned part usages within a part def."""
+    """Return owned part usages within a part def, excluding connectors and interfaces."""
     usages = []
     try:
         for m in part_def.owned_members.collect():
-            if m.isinstance(syside.PartUsage.STD):
-                usages.append(m.cast(syside.PartUsage.STD))
+            if not m.isinstance(syside.PartUsage.STD):
+                continue
+            # ConnectionUsage :> PartUsage in SysML v2 — exclude interface/connect usages
+            try:
+                if m.isinstance(syside.ConnectionUsage.STD):
+                    continue
+            except Exception:
+                pass
+            usages.append(m.cast(syside.PartUsage.STD))
     except Exception:
         pass
     return usages
