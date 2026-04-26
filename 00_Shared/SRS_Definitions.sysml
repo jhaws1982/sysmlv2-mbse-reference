@@ -49,7 +49,7 @@ library package <SRSREQ> SRS_Definitions {
   // Use 'public import' only in namespace hub files intended to re-export names.
   private import ScalarValues::*;
   private import CommonDefinitions::*;
-  private import VerificationCases::VerificationMethodKind;
+  public import VerificationCases::VerificationMethodKind;
 
   // ----------------------------------------
   // ISQ Quantity Kind Enumeration
