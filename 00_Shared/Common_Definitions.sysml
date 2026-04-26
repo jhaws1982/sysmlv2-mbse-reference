@@ -233,11 +233,11 @@ library package <CMNDEF> CommonDefinitions {
     attribute riskId    : ScalarValues::String;       // program-unique ID, e.g. RISK-PA-001
     attribute title     : ScalarValues::String;       // one-line descriptive title
     attribute category  : RiskCategory;
-    attribute status    : RiskStatus = RiskStatus::Open;
+    attribute status    : RiskStatus;
 
     // Assessment
-    attribute probability : LevelKind = LevelKind::Undefined; // likelihood of occurrence
-    attribute impact      : LevelKind = LevelKind::Undefined; // severity if risk occurs
+    attribute probability : LevelKind; // likelihood of occurrence
+    attribute impact      : LevelKind; // severity if risk occurs
     attribute exposure    : ScalarValues::Integer;   // set to probability * impact (1–9)
 
     // Narrative

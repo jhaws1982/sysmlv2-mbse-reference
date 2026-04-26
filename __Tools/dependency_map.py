@@ -39,6 +39,9 @@ SysIDE API notes (SysIDE 0.8.x / SysML v2 2025-07):
 import sys
 import argparse
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 from collections import defaultdict
 import syside
 from syside.preview import open_model
@@ -282,7 +285,7 @@ def run(model_dir: Path, output_dir: Path):
     source_label = str(model_dir)
     print(f"Loading model from: {model_dir}\n")
 
-    with open_model(model_dir) as model:
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
 
         diags = model.diagnostics
         if diags.contains_errors():
@@ -294,7 +297,7 @@ def run(model_dir: Path, output_dir: Path):
 
         # ── Collect and classify ──────────────────────────────────────────
         all_part_defs: list = []
-        for top in model.top_elements_from(model_dir):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PartDefinition.STD, all_part_defs)
 
         # by_kind[kind] = list of (name, [dep_names])

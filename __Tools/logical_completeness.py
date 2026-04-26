@@ -15,7 +15,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc, get_short_name,
     md_heading, md_table, write_report, is_plain_req,
     ValidationIssue, format_issues_md, issues_summary,
@@ -48,7 +48,7 @@ def has_perform_link(action_def, model, model_dir) -> bool:
     ad_name = get_declared_name(action_def)
     try:
         all_perform = []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PerformActionUsage.STD, all_perform)
         for p in all_perform:
             try:
@@ -93,7 +93,7 @@ def main():
         all_reqs     = []
         satisfy_uses = []
 
-        for top in model.top_elements_from(str(args.model_dir)):
+        for top in iter_user_elements(model, args.model_dir):
             collect_typed(top, syside.PartDefinition.STD, part_defs)
             collect_typed(top, syside.ActionDefinition.STD, action_defs)
             collect_typed(top, syside.PortDefinition.STD, port_defs)
@@ -106,13 +106,20 @@ def main():
         logical_ports   = [p for p in port_defs if in_logical_or_alloc(p)]
         plain_reqs      = [r for r in all_reqs if is_plain_req(r)]
 
-        # Build satisfied req set
+        # Build satisfied req set — use satisfied_requirement (singular) and
+        # only count direct architectural satisfy usages (satisfying_feature
+        # is not None), not verification-case claims.
         satisfied_req_ids = set()
         for su in satisfy_uses:
             try:
-                for r in su.satisfied_requirements.collect():
+                sf = su.satisfying_feature
+                if sf is None:
+                    continue
+                r = su.satisfied_requirement
+                if r is not None:
                     rid = get_short_name(r) or get_declared_name(r)
-                    satisfied_req_ids.add(rid)
+                    if rid:
+                        satisfied_req_ids.add(rid)
             except Exception:
                 pass
 

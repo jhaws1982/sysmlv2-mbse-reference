@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
     md_heading, md_table, write_report, collapse_doc,
 )
@@ -73,7 +73,7 @@ def collect_perform_links(model, model_dir) -> list:
     performs = []
     try:
         all_perform = []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PerformActionUsage.STD, all_perform)
         for p in all_perform:
             p_name = get_declared_name(p)
@@ -111,7 +111,7 @@ def main():
 
         action_defs = []
         state_defs  = []
-        for top in model.top_elements_from(str(args.model_dir)):
+        for top in iter_user_elements(model, args.model_dir):
             collect_typed(top, syside.ActionDefinition.STD, action_defs)
             collect_typed(top, syside.StateDefinition.STD, state_defs)
 

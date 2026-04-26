@@ -12,7 +12,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
     md_heading, md_table, write_report, collapse_doc,
 )
@@ -20,16 +20,20 @@ import syside
 
 
 def get_actor_type_name(concern) -> str:
-    """Return the type name of the actor/stakeholder in a concern def."""
+    """Return the first user-defined type name of the actor PartUsage in a concern def.
+
+    `actor op : PrimaryOperator;` creates a PartUsage with declared_name='op'
+    and types=['PrimaryOperator', 'Part', ...]. Skip ReferenceUsage (subject)
+    and Documentation, then take the first non-stdlib type of any PartUsage.
+    """
     try:
         for member in concern.owned_members.collect():
-            # StakeholderMembership or FramedConcernMembership
-            type_name = type(member).__name__
-            if "Stakeholder" in type_name or "actor" in getattr(member, "declared_name", "") or "":
-                for typ in member.types.collect():
-                    name = get_declared_name(typ)
-                    if name:
-                        return name
+            if not member.isinstance(syside.PartUsage.STD):
+                continue
+            for typ in member.types.collect():
+                name = get_declared_name(typ)
+                if name and name not in ("Part", "Anything"):
+                    return name
     except Exception:
         pass
     return ""
@@ -49,7 +53,7 @@ def main():
         # Collect part defs (stakeholder roles) and concern defs
         part_defs = []
         concern_defs = []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PartDefinition.STD, part_defs)
             collect_typed(top, syside.ConcernDefinition.STD, concern_defs)
 

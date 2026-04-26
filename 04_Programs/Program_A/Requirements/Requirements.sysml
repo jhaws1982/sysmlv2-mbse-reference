@@ -61,7 +61,7 @@ package ProgramA_Requirements {
         subject sys : ProgramA_SystemDef;
         attribute :>> source         = "PA-OCD §4.2.1";
         attribute :>> priority       = CMNDEF::LevelKind::High;
-        attribute :>> criticality    = CMNDEF::LevelKind::Critical;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
         attribute :>> capabilityName = "ProgramA_PeakThroughput";
         attribute :>> throughput     = "5000 messages/second minimum under peak load,  measured over a 5-minute sustained run.";
         attribute :>> latency        = "End-to-end latency shall not exceed 75 ms at  99th percentile during peak throughput operation.";
@@ -120,7 +120,7 @@ package ProgramA_Requirements {
         subject sys : ProgramA_SystemDef;
         attribute :>> source         = "PA-REG-001";
         attribute :>> priority       = CMNDEF::LevelKind::High;
-        attribute :>> criticality    = CMNDEF::LevelKind::Critical;
+        attribute :>> criticality    = CMNDEF::LevelKind::High;
         attribute :>> constraintText = "All data handling, storage, and transmission shall  conform to PA-REG-001 data governance requirements. Cryptographic  algorithms shall be FIPS 140-3 validated where required.";
         part :>> criteria : VerificationCriteria {
             doc

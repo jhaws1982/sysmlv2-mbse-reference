@@ -61,8 +61,8 @@ package ProgramB_Requirements {
          */
         subject sys : ProgramB_SystemDef;
         attribute :>> source      = "PB-SHA §5.3";
-        attribute :>> priority    = CMNDEF::LevelKind::Critical;
-        attribute :>> criticality = CMNDEF::LevelKind::Critical;
+        attribute :>> priority    = CMNDEF::LevelKind::High;
+        attribute :>> criticality = CMNDEF::LevelKind::High;
         attribute :>> hazard      = "Inadvertent execution of a safety-critical command  resulting from software fault, operator error, or electromagnetic interference.";
         attribute :>> mitigation  = "Dual-confirmation interlock: command accepted only when  two independent confirmations received within a 5-second window. All safety-critical  command attempts logged to tamper-evident audit trail.";
         part :>> criteria : VerificationCriteria {
@@ -127,7 +127,7 @@ package ProgramB_Requirements {
         subject sys : ProgramB_SystemDef;
         attribute :>> source      = "PB-SHA §3.1; PB-HWS-001";
         attribute :>> priority    = CMNDEF::LevelKind::High;
-        attribute :>> criticality = CMNDEF::LevelKind::Critical;
+        attribute :>> criticality = CMNDEF::LevelKind::High;
         attribute :>> resource    = "CPU: <= 70% utilization; Memory: <= 80% utilization.  Both measured as sustained averages over any 60-second window under peak  operational load per PB-ITP §4.2.";
         part :>> criteria : VerificationCriteria {
             doc

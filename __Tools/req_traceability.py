@@ -12,7 +12,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, get_def_type_name,
     md_heading, md_table, write_report, collapse_doc, is_plain_req,
 )
@@ -26,13 +26,10 @@ def get_framed_concern_names(req_def) -> list:
     names = []
     try:
         for member in req_def.owned_members.collect():
-            if member.isinstance(syside.FramedConcernMembership.STD):
-                fcm = member.cast(syside.FramedConcernMembership.STD)
-                try:
-                    for concern in fcm.concerns.collect():
-                        names.append(get_declared_name(concern))
-                except Exception:
-                    pass
+            if member.isinstance(syside.ConcernUsage.STD):
+                name = get_declared_name(member)
+                if name:
+                    names.append(name)
     except Exception:
         pass
     return names
@@ -62,7 +59,7 @@ def main():
         req_defs    = []
         req_usages  = []
         concern_defs = []
-        for top in model.top_elements_from(str(args.model_dir)):
+        for top in iter_user_elements(model, args.model_dir):
             collect_typed(top, syside.RequirementDefinition.STD, req_defs)
             collect_typed(top, syside.RequirementUsage.STD, req_usages)
             collect_typed(top, syside.ConcernDefinition.STD, concern_defs)

@@ -13,7 +13,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, get_named_doc,
     md_heading, md_table, write_report, collapse_doc, is_plain_req,
 )
@@ -64,7 +64,7 @@ def main():
                 print(f"  ERROR:   {msg}")
 
         part_defs, concern_defs, all_reqs = [], [], []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PartDefinition.STD, part_defs)
             collect_typed(top, syside.ConcernDefinition.STD, concern_defs)
             collect_typed(top, syside.RequirementUsage.STD, all_reqs)

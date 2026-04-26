@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
     md_heading, write_report,
 )
@@ -63,7 +63,7 @@ def main():
                 print(f"  ERROR:   {msg}")
 
         part_defs = []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PartDefinition.STD, part_defs)
 
         context_parts = [p for p in part_defs if in_pkg(p, "SystemContext")]

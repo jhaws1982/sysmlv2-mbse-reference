@@ -12,7 +12,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
     md_heading, md_table, write_report, collapse_doc,
 )
@@ -24,13 +24,10 @@ def get_framed_concerns(req_def) -> list[str]:
     names = []
     try:
         for member in req_def.owned_members.collect():
-            if member.isinstance(syside.FramedConcernMembership.STD):
-                fcm = member.cast(syside.FramedConcernMembership.STD)
-                try:
-                    for concern in fcm.concerns.collect():
-                        names.append(get_declared_name(concern))
-                except Exception:
-                    pass
+            if member.isinstance(syside.ConcernUsage.STD):
+                name = get_declared_name(member)
+                if name:
+                    names.append(name)
     except Exception:
         pass
     return names
@@ -48,10 +45,12 @@ def main():
                 print(f"  ERROR:   {msg}")
 
         concern_defs, use_cases, req_defs = [], [], []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.ConcernDefinition.STD, concern_defs)
             collect_typed(top, syside.UseCaseUsage.STD, use_cases)
             collect_typed(top, syside.RequirementDefinition.STD, req_defs)
+        use_cases = [uc for uc in use_cases
+                     if not (uc.owner and uc.owner.isinstance(syside.UseCaseUsage.STD))]
 
         # Build: concern_name -> [req_def_names that frame it]
         concern_to_reqdefs: dict[str, list[str]] = defaultdict(list)

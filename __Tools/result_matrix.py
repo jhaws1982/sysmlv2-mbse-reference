@@ -36,6 +36,9 @@ import sys
 import csv
 import argparse
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 from xml.etree import ElementTree as ET
 import syside
 from syside.preview import open_model
@@ -308,7 +311,7 @@ def build_matrix(model_dir: Path, xml_path: Path | None, program: str | None, ou
     if xml_path and ctest_results:
         print(f"Parsed {len(ctest_results)} test result(s) from XML.")
 
-    with open_model(model_dir) as model:
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
 
         diags = model.diagnostics
         if diags.contains_errors():
@@ -335,7 +338,7 @@ def build_matrix(model_dir: Path, xml_path: Path | None, program: str | None, ou
         # Core collection
         core_req_usages    = []
         core_verifications = []
-        for top in model.top_elements_from(model_dir):
+        for top in iter_user_elements(model, model_dir):
             if not is_prog_element(top):
                 collect_typed(top, syside.RequirementUsage.STD,      core_req_usages)
                 collect_typed(top, syside.VerificationCaseUsage.STD, core_verifications)

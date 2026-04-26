@@ -13,7 +13,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name,
     md_heading, md_table, write_report,
     ValidationIssue, format_issues_md, issues_summary,
@@ -31,32 +31,26 @@ REQUIRES_MITIGATION = {"Open", "Mitigated"}
 def get_metadata_attr(meta, attr_name):
     try:
         for member in meta.owned_members.collect():
-            name = getattr(member, "declared_name", None)
+            # In syside 0.8.x, metadata member names are on .name (not .declared_name)
+            name = getattr(member, "name", None) or getattr(member, "declared_name", None)
             if name != attr_name:
-                try:
-                    rf = member.referenced_feature
-                    if rf and rf.declared_name == attr_name:
-                        name = attr_name
-                    else:
-                        continue
-                except Exception:
-                    continue
+                continue
             try:
                 expr = member.feature_value_expression
                 if expr is not None:
+                    # LiteralString, LiteralInteger, LiteralBoolean, etc.
                     val = getattr(expr, "value", None)
                     if val is not None:
                         return str(val).strip("\"'")
+                    # FeatureReferenceExpression (enum literals like RiskCategory::Technical)
+                    referent = getattr(expr, "referent", None)
+                    if referent is not None:
+                        ref_name = getattr(referent, "declared_name", None)
+                        if ref_name:
+                            return str(ref_name)
                     s = str(expr).strip("\"'")
                     if s and not s.startswith("<"):
                         return s
-            except Exception:
-                pass
-            try:
-                for sub in member.owned_members.collect():
-                    val = getattr(sub, "value", None)
-                    if val is not None:
-                        return str(val).strip("\"'")
             except Exception:
                 pass
             return ""
@@ -80,7 +74,7 @@ def collect_risk_annotations(model, model_dir):
     results = []
     try:
         all_meta = []
-        for top in model.top_elements_from(str(model_dir)):
+        for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.MetadataUsage.STD, all_meta)
         for meta in all_meta:
             try:

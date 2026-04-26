@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, get_def_type_name,
     md_heading, md_table, write_report, collapse_doc, is_plain_req,
 )
@@ -65,7 +65,7 @@ def build_node(req) -> ReqNode:
 
 def collect_roots(model, model_dir) -> list:
     all_reqs = []
-    for top in model.top_elements_from(str(model_dir)):
+    for top in iter_user_elements(model, model_dir):
         collect_typed(top, syside.RequirementUsage.STD, all_reqs)
     roots = []
     for req in [r for r in all_reqs if is_plain_req(r)]:

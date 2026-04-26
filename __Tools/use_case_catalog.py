@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc, get_def_type_name,
     md_heading, md_table, write_report, collapse_doc,
 )
@@ -34,12 +34,23 @@ def get_includes(uc) -> list[str]:
     try:
         for member in uc.owned_members.collect():
             if member.isinstance(syside.IncludeUseCaseUsage.STD):
-                inc = member.cast(syside.IncludeUseCaseUsage.STD)
-                for typ in inc.types.collect():
-                    includes.append(get_declared_name(typ))
+                name = get_declared_name(member)
+                if name:
+                    includes.append(name)
     except Exception:
         pass
     return includes
+
+
+def is_top_level_uc(uc) -> bool:
+    """Return True if this use case is at package scope (not nested inside another use case)."""
+    try:
+        owner = uc.owner
+        if owner and owner.isinstance(syside.UseCaseUsage.STD):
+            return False
+    except Exception:
+        pass
+    return True
 
 
 def main():
@@ -53,9 +64,10 @@ def main():
             for msg in diags.errors:
                 print(f"  ERROR:   {msg}")
 
-        use_cases = []
-        for top in model.top_elements_from(str(model_dir)):
-            collect_typed(top, syside.UseCaseUsage.STD, use_cases)
+        all_ucs = []
+        for top in iter_user_elements(model, model_dir):
+            collect_typed(top, syside.UseCaseUsage.STD, all_ucs)
+        use_cases = [uc for uc in all_ucs if is_top_level_uc(uc)]
 
         lines = [
             md_heading("Use Case Catalog (SN-03)"),

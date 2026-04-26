@@ -28,6 +28,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 import syside
 from syside.preview import open_model
 
@@ -255,14 +257,14 @@ def _is_stakeholder_usage(element) -> bool:
     return tn in ("PartUsage", "StakeholderUsage") or "StakeholderUsage" in tn
 
 
-def collect_concern_defs(model, debug: bool = False) -> list[ConcernRecord]:
+def collect_concern_defs(model, model_dir: Path, debug: bool = False) -> list[ConcernRecord]:
     """
-    Walk the entire model and collect all ConcernDefinition elements,
+    Walk user model directories and collect all ConcernDefinition elements,
     returning a list of ConcernRecord objects populated with their
     StakeholderUsage members.
     """
     concern_defs = []
-    for top in model.top_elements():
+    for top in iter_user_elements(model, model_dir):
         collect_typed(top, syside.ConcernDefinition.STD, concern_defs)
 
     records = []
@@ -324,15 +326,15 @@ def _collect_by_type_name(root, type_name: str, results: list):
         pass
 
 
-def collect_stakeholder_defs(model) -> list[str]:
+def collect_stakeholder_defs(model, model_dir: Path) -> list[str]:
     """
-    Walk the entire model and return qualified names of all
+    Walk user model directories and return qualified names of all
     StakeholderDefinition elements (for zero-concern detection).
     Uses string-based type matching since StakeholderDefinition is not
     directly exported on the syside module.
     """
     stk_defs = []
-    for top in model.top_elements():
+    for top in iter_user_elements(model, model_dir):
         _collect_by_type_name(top, "StakeholderDefinition", stk_defs)
 
     names = []
@@ -552,7 +554,7 @@ def main():
     if args.verbose:
         print(f"[concern_report] Loading model from: {model_dir}")
 
-    with open_model(model_dir) as model:
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
 
         diags = model.diagnostics
         if diags.contains_errors():
@@ -564,8 +566,8 @@ def main():
         if args.verbose:
             print("[concern_report] Scanning for concern defs...")
 
-        concerns = collect_concern_defs(model, debug=args.debug)
-        all_stk_def_names = collect_stakeholder_defs(model)
+        concerns = collect_concern_defs(model, model_dir, debug=args.debug)
+        all_stk_def_names = collect_stakeholder_defs(model, model_dir)
 
         if args.verbose:
             print(f"[concern_report] Found {len(concerns)} concern def(s).")

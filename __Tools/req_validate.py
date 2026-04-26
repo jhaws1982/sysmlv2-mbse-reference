@@ -40,6 +40,9 @@ import sys
 import re
 import argparse
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -507,9 +510,9 @@ def print_results(results: list[RequirementResult]):
 
 def run(model_dir: Path, program: str | None, output_dir: Path | None):
     print(f"Opening model at: {model_dir}")
-    with open_model(str(model_dir)) as model:
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
         all_reqs: list[syside.RequirementUsage] = []
-        for element in model.top_elements_from(str(model_dir)):
+        for element in iter_user_elements(model, model_dir):
             collect_typed(element, syside.RequirementUsage.STD, all_reqs)
 
         if program:

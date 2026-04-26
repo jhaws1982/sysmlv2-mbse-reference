@@ -9,6 +9,9 @@ Usage:
 
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 import syside
 from syside.preview import open_model
 
@@ -89,8 +92,8 @@ def main():
     model_dir  = Path(sys.argv[1]).resolve()
     type_name  = sys.argv[2]
 
-    with open_model(model_dir) as model:
-        for top in model.top_elements_from(model_dir):
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
+        for top in iter_user_elements(model, model_dir):
             if not top.isinstance(syside.Namespace.STD):
                 continue
             if top.declared_name != SRS_DEFS_PACKAGE:

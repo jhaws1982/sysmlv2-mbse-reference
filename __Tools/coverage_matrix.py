@@ -32,6 +32,9 @@ import sys
 import csv
 import argparse
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _tool_utils import iter_user_elements, collect_user_sysml_files
 import syside
 from syside.preview import open_model
 
@@ -208,7 +211,7 @@ def build_matrix(model_dir: Path, program: str | None, output_dir: Path):
     else:
         print()
 
-    with open_model(model_dir) as model:
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
 
         diags = model.diagnostics
         if diags.contains_errors():
@@ -221,7 +224,7 @@ def build_matrix(model_dir: Path, program: str | None, output_dir: Path):
         core_req_usages:    list = []
         core_verifications: list = []
 
-        for top in model.top_elements_from(model_dir):
+        for top in iter_user_elements(model, model_dir):
             skip = False
             if programs_dir.exists():
                 for prog_dir in programs_dir.iterdir():

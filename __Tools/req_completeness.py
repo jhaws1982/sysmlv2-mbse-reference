@@ -12,7 +12,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
-    parse_args, load_model, collect_typed,
+    parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, has_doc_rationale,
     md_heading, md_table, write_report, format_issues_md, issues_summary,
     is_plain_req, ValidationIssue,
@@ -34,8 +34,9 @@ def main():
                 print(f"  ERROR:   {msg}")
 
         all_reqs = []
-        for top in model.top_elements_from(str(args.model_dir)):
+        for top in iter_user_elements(model, args.model_dir):
             collect_typed(top, syside.RequirementUsage.STD, all_reqs)
+
         reqs = [r for r in all_reqs if is_plain_req(r)]
 
         issues = []
