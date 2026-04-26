@@ -7,7 +7,6 @@ organized by requirement type. Attempts PDF generation via pandoc.
 Usage: python __Tools/sys_req_spec.py <model_dir> [--output DIR]
 """
 import sys
-import subprocess
 from pathlib import Path
 from collections import defaultdict
 
@@ -16,7 +15,7 @@ from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, get_named_doc,
     get_def_type_name, md_heading, md_table, write_report,
-    collapse_doc, is_plain_req,
+    collapse_doc, is_plain_req, pdf_attempt,
 )
 import syside
 
@@ -113,24 +112,6 @@ def format_req(req, depth=0) -> list[str]:
     for sub in get_subreqs(req):
         lines.extend(format_req(sub, depth + 1))
     return lines
-
-
-def pdf_attempt(md_content, pdf_path, artifact_id):
-    tmp = pdf_path.with_suffix(".md.tmp")
-    tmp.write_text(md_content, encoding="utf-8")
-    try:
-        subprocess.run(
-            ["pandoc", str(tmp), "-o", str(pdf_path),
-             "--pdf-engine=xelatex", "-V", "geometry:margin=1in",
-             "-V", "fontsize=11pt", "--toc", "--number-sections"],
-            check=True, capture_output=True, timeout=120)
-        print(f"  [{artifact_id} PDF] → {pdf_path}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pdf_path.with_suffix(".pdf.txt").write_text(
-            f"PDF requires pandoc + xelatex. Markdown at {pdf_path.stem}.md\n")
-        print(f"  [{artifact_id} PDF] ⚠ pandoc not available — see {pdf_path.stem}.md")
-    finally:
-        tmp.unlink(missing_ok=True)
 
 
 def main():

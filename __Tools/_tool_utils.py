@@ -24,6 +24,7 @@ import sys
 import json
 import argparse
 import re
+import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -313,3 +314,29 @@ def in_package_named(element, *pkg_names: str) -> bool:
     except Exception:
         pass
     return False
+
+
+def pdf_attempt(md_content: str, pdf_path: Path, artifact_id: str,
+                *, number_sections: bool = True) -> None:
+    """Convert Markdown to PDF via pandoc + weasyprint.
+
+    Resolves the weasyprint binary from the same Python environment as the
+    running interpreter so the call works whether or not the venv is activated
+    in the calling shell.
+    """
+    weasyprint_bin = Path(sys.executable).parent / "weasyprint"
+    tmp = pdf_path.with_suffix(".md.tmp")
+    tmp.write_text(md_content, encoding="utf-8")
+    cmd = ["pandoc", str(tmp), "-o", str(pdf_path),
+           f"--pdf-engine={weasyprint_bin}", "--toc"]
+    if number_sections:
+        cmd.append("--number-sections")
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+        print(f"  [{artifact_id} PDF] → {pdf_path}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pdf_path.with_suffix(".pdf.txt").write_text(
+            f"PDF requires pandoc + weasyprint. Markdown at {pdf_path.stem}.md\n")
+        print(f"  [{artifact_id} PDF] ⚠ PDF generation failed — see {pdf_path.stem}.md")
+    finally:
+        tmp.unlink(missing_ok=True)

@@ -7,14 +7,13 @@ to produce a structured Operational Concept Description document.
 Usage: python __Tools/opscon_report.py <model_dir> [--output DIR]
 """
 import sys
-import subprocess
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
-    md_heading, write_report,
+    md_heading, write_report, pdf_attempt,
 )
 import syside
 
@@ -30,24 +29,6 @@ def in_pkg(element, *names) -> bool:
     except Exception:
         pass
     return False
-
-
-def pdf_attempt(md_content: str, pdf_path: Path, artifact_id: str):
-    tmp = pdf_path.with_suffix(".md.tmp")
-    tmp.write_text(md_content, encoding="utf-8")
-    try:
-        subprocess.run(
-            ["pandoc", str(tmp), "-o", str(pdf_path),
-             "--pdf-engine=xelatex", "-V", "geometry:margin=1in",
-             "-V", "fontsize=11pt", "--toc"],
-            check=True, capture_output=True, timeout=120)
-        print(f"  [{artifact_id} PDF] → {pdf_path}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pdf_path.with_suffix(".pdf.txt").write_text(
-            f"PDF requires pandoc + xelatex. Markdown at {pdf_path.stem}.md\n")
-        print(f"  [{artifact_id} PDF] ⚠ pandoc not available — see {pdf_path.stem}.md")
-    finally:
-        tmp.unlink(missing_ok=True)
 
 
 def main():
@@ -130,7 +111,7 @@ def main():
     md_content = "\n".join(lines)
     md_path = args.output / "opscon_report.md"
     write_report(md_path, md_content, "SN-04 MD")
-    pdf_attempt(md_content, args.output / "opscon_report.pdf", "SN-04")
+    pdf_attempt(md_content, args.output / "opscon_report.pdf", "SN-04", number_sections=False)
 
 
 if __name__ == "__main__":
