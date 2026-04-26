@@ -6,6 +6,7 @@ to produce a structured Operational Concept Description document.
 
 Usage: python __Tools/opscon_report.py <model_dir> [--output DIR]
 """
+import html as _html
 import sys
 from pathlib import Path
 
@@ -13,9 +14,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
-    md_heading, write_report, pdf_attempt,
+    write_report,
 )
+from report_builder import ReportBuilder, load_report_config
 import syside
+
+
+def _esc(s: str) -> str:
+    return _html.escape(s or "")
 
 
 def in_pkg(element, *names) -> bool:
@@ -32,9 +38,10 @@ def in_pkg(element, *names) -> bool:
 
 
 def main():
-    args = parse_args("SN-04 Operational Concept Description")
+    args    = parse_args("SN-04 Operational Concept Description")
+    config  = load_report_config(args.script_config)
     model_dir = args.model_dir
-    project = model_dir.name
+    project   = model_dir.name
 
     with load_model(model_dir) as model:
         diags = model.diagnostics
@@ -50,68 +57,86 @@ def main():
         context_parts = [p for p in part_defs if in_pkg(p, "SystemContext")]
         concept_parts = [p for p in part_defs if in_pkg(p, "OperationalConcept")]
 
-        lines = [
-            md_heading(f"Operational Concept Description"),
-            f"**Project:** {project}\n",
-            "---\n",
-            md_heading("1. Introduction", 2),
-            f"This document describes the operational concept for the **{project}** system: "
-            "the operational environment, system purpose, primary user community, "
-            "and key operational scenarios.\n",
-        ]
+        builder = ReportBuilder(
+            config,
+            doc_title  = "Operational Concept Description",
+            doc_number = "SN-04",
+            project    = project,
+        )
 
-        # System Context section
-        lines.append(md_heading("2. System Context", 2))
+        # 1. Introduction
+        builder.add(
+            "<h2>1. Introduction</h2>"
+            f"<p>This document describes the operational concept for the "
+            f"<strong>{_esc(project)}</strong> system: "
+            "the operational environment, system purpose, primary user community, "
+            "and key operational scenarios.</p>"
+        )
+
+        # 2. System Context
+        builder.add("<h2>2. System Context</h2>")
         context_found = False
         for p in sorted(context_parts, key=get_declared_name):
             name = get_declared_name(p)
-            doc = get_unnamed_doc(p)
+            doc  = get_unnamed_doc(p)
             if name.endswith("Assembly") or not doc:
                 continue
-            lines.append(md_heading(name, 3))
-            lines.append(f"{doc}\n")
+            builder.add(f"<h3>{_esc(name)}</h3><p>{_esc(doc)}</p>")
             context_found = True
         if not context_found:
-            lines.append("> Populate `02_Core/Context/system_context.sysml` with system "
-                         "and actor descriptions.\n")
+            builder.add(
+                "<p><em>Populate <code>02_Core/Context/system_context.sysml</code> "
+                "with system and actor descriptions.</em></p>"
+            )
 
-        # OpsCon Summary
-        lines.append(md_heading("3. Operational Concept Summary", 2))
+        # 3. Operational Concept Summary
+        builder.add("<h2>3. Operational Concept Summary</h2>")
         summary_found = False
         for p in concept_parts:
             name = get_declared_name(p)
-            doc = get_unnamed_doc(p)
+            doc  = get_unnamed_doc(p)
             if "Summary" in name and doc:
-                lines.append(f"{doc}\n")
+                builder.add(f"<p>{_esc(doc)}</p>")
                 summary_found = True
         if not summary_found:
-            lines.append("> Populate `OperationalConceptSummary` in "
-                         "`02_Core/Context/operational_concept.sysml`.\n")
+            builder.add(
+                "<p><em>Populate <code>OperationalConceptSummary</code> in "
+                "<code>02_Core/Context/operational_concept.sysml</code>.</em></p>"
+            )
 
-        # Missions
+        # 4. Missions
         missions = [p for p in concept_parts if "Mission" in get_declared_name(p)]
         if missions:
-            lines.append(md_heading("4. Missions", 2))
+            builder.add("<h2>4. Missions</h2>")
             for m in sorted(missions, key=get_declared_name):
                 name = get_declared_name(m)
-                doc = get_unnamed_doc(m)
-                lines.append(md_heading(name, 3))
-                lines.append(f"{doc}\n" if doc else "> No description.\n")
+                doc  = get_unnamed_doc(m)
+                builder.add(
+                    f"<h3>{_esc(name)}</h3>"
+                    f"<p>{_esc(doc) if doc else '<em>No description.</em>'}</p>"
+                )
 
-        # Scenarios
+        # 5. Operational Scenarios
         scenarios = [p for p in concept_parts if "Scenario" in get_declared_name(p)]
         if scenarios:
-            lines.append(md_heading("5. Operational Scenarios", 2))
+            builder.add("<h2>5. Operational Scenarios</h2>")
             for s in sorted(scenarios, key=get_declared_name):
                 name = get_declared_name(s)
-                doc = get_unnamed_doc(s)
-                lines.append(md_heading(name, 3))
-                lines.append(f"{doc}\n" if doc else "> No description.\n")
+                doc  = get_unnamed_doc(s)
+                builder.add(
+                    f"<h3>{_esc(name)}</h3>"
+                    f"<p>{_esc(doc) if doc else '<em>No description.</em>'}</p>"
+                )
 
-    md_content = "\n".join(lines)
-    md_path = args.output / "opscon_report.md"
-    write_report(md_path, md_content, "SN-04 MD")
-    pdf_attempt(md_content, args.output / "opscon_report.pdf", "SN-04", number_sections=False)
+    # Markdown fallback
+    md_lines = [
+        "# Operational Concept Description\n",
+        f"**Project:** {project}\n",
+        "## 1. Introduction\n",
+        f"Operational concept description for **{project}**.\n",
+    ]
+    write_report(args.output / "opscon_report.md", "\n".join(md_lines), "SN-04 MD")
+    builder.render_pdf(args.output / "opscon_report.pdf")
 
 
 if __name__ == "__main__":

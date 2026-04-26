@@ -6,6 +6,7 @@ part defs in LogicalArchDefs, LogicalArchModel, and related packages.
 
 Usage: python __Tools/logical_arch_report.py <model_dir> [--output DIR]
 """
+import html as _html
 import sys
 from pathlib import Path
 
@@ -13,12 +14,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,
-    md_heading, md_table, write_report, collapse_doc, pdf_attempt,
+    write_report, collapse_doc,
 )
+from report_builder import ReportBuilder, load_report_config
 try:
     import syside
 except ImportError:
     pass
+
+
+def _esc(s: str) -> str:
+    return _html.escape(s or "")
 
 
 def in_pkg(element, *names) -> bool:
@@ -35,9 +41,10 @@ def in_pkg(element, *names) -> bool:
 
 
 def main():
-    args = parse_args("LA-01 Logical Architecture Description")
+    args    = parse_args("LA-01 Logical Architecture Description")
+    config  = load_report_config(args.script_config)
     model_dir = args.model_dir
-    project = model_dir.name
+    project   = model_dir.name
 
     with load_model(model_dir) as model:
         diags = model.diagnostics
@@ -46,78 +53,98 @@ def main():
             for msg in diags.errors:
                 print(f"  ERROR:   {msg}")
 
-        part_defs = []
+        part_defs   = []
         part_usages = []
         for top in iter_user_elements(model, model_dir):
             collect_typed(top, syside.PartDefinition.STD, part_defs)
             collect_typed(top, syside.PartUsage.STD, part_usages)
 
-        # Separate subsystem defs from feature component defs
         subsystem_defs = [p for p in part_defs
                           if in_pkg(p, "LogicalArchDef") and
                           not in_pkg(p, "CommonDefinition", "StakeholderDef")]
         feature_defs   = [p for p in part_defs
                           if in_pkg(p, "Feature", "CoreSystem") and
                           not in_pkg(p, "LogicalArchDef")]
+        arch_instances = [u for u in part_usages if in_pkg(u, "LogicalArchModel")]
 
-        lines = [
-            md_heading("Logical Architecture Description (LA-01)"),
-            f"**Project:** {project}\n",
-            "---\n",
-            md_heading("1. Introduction", 2),
-            f"This document describes the logical architecture of **{project}**: "
-            "the decomposition of the system into subsystems, their responsibilities, "
-            "and behavioral assignments. The logical architecture is technology-independent "
-            "and maps to physical components in program-specific deployments.\n",
-        ]
+        builder = ReportBuilder(
+            config,
+            doc_title  = "Logical Architecture Description",
+            doc_number = "LA-01",
+            project    = project,
+        )
 
-        # Logical subsystems
-        lines.append(md_heading("2. Logical Subsystems", 2))
+        # 1. Introduction
+        builder.add(
+            "<h2>1. Introduction</h2>"
+            f"<p>This document describes the logical architecture of "
+            f"<strong>{_esc(project)}</strong>: the decomposition of the system "
+            "into subsystems, their responsibilities, and behavioral assignments. "
+            "The logical architecture is technology-independent and maps to physical "
+            "components in program-specific deployments.</p>"
+        )
+
+        # 2. Logical Subsystems
+        builder.add("<h2>2. Logical Subsystems</h2>")
         if subsystem_defs:
-            rows = []
-            for pd in sorted(subsystem_defs, key=get_declared_name):
-                name = get_declared_name(pd)
-                doc  = collapse_doc(get_unnamed_doc(pd))
-                rows.append([name, doc[:120] or "—"])
-            lines.append(md_table(["Subsystem", "Description"], rows))
-            lines.append("")
-            # Narrative for each
+            # Summary table
+            rows_html = "".join(
+                f'<tr><td>{_esc(get_declared_name(pd))}</td>'
+                f'<td>{_esc(collapse_doc(get_unnamed_doc(pd))[:140] or "—")}</td></tr>'
+                for pd in sorted(subsystem_defs, key=get_declared_name)
+            )
+            builder.add(
+                '<table><thead><tr><th>Subsystem</th><th>Description</th></tr></thead>'
+                f'<tbody>{rows_html}</tbody></table>'
+            )
+            # Narrative
             for pd in sorted(subsystem_defs, key=get_declared_name):
                 name = get_declared_name(pd)
                 doc  = get_unnamed_doc(pd)
-                lines.append(md_heading(name, 3))
-                lines.append(f"{doc or '*No description.*'}\n")
+                builder.add(
+                    f'<h3>{_esc(name)}</h3>'
+                    f'<p>{_esc(doc) if doc else "<em>No description.</em>"}</p>'
+                )
         else:
-            lines.append("> No logical subsystem definitions found in LogicalArchDefs.\n")
+            builder.add(
+                "<p><em>No logical subsystem definitions found in "
+                "LogicalArchDefs.</em></p>"
+            )
 
-        # Feature components
-        lines.append(md_heading("3. Feature Components", 2))
+        # 3. Feature Components
+        builder.add("<h2>3. Feature Components</h2>")
         if feature_defs:
-            rows = []
-            for pd in sorted(feature_defs, key=get_declared_name):
-                name = get_declared_name(pd)
-                doc  = collapse_doc(get_unnamed_doc(pd))
-                rows.append([name, doc[:120] or "—"])
-            lines.append(md_table(["Component", "Description"], rows))
+            rows_html = "".join(
+                f'<tr><td>{_esc(get_declared_name(pd))}</td>'
+                f'<td>{_esc(collapse_doc(get_unnamed_doc(pd))[:140] or "—")}</td></tr>'
+                for pd in sorted(feature_defs, key=get_declared_name)
+            )
+            builder.add(
+                '<table><thead><tr><th>Component</th><th>Description</th></tr></thead>'
+                f'<tbody>{rows_html}</tbody></table>'
+            )
         else:
-            lines.append("> No feature component definitions found.\n")
+            builder.add("<p><em>No feature component definitions found.</em></p>")
 
-        # Architecture instances
-        arch_instances = [u for u in part_usages
-                          if in_pkg(u, "LogicalArchModel")]
+        # 4. Architecture Instances
         if arch_instances:
-            lines.append(md_heading("4. Architecture Instances", 2))
-            rows = []
-            for u in sorted(arch_instances, key=get_declared_name):
-                name = get_declared_name(u)
-                doc  = collapse_doc(get_unnamed_doc(u))
-                rows.append([name, doc[:100] or "—"])
-            lines.append(md_table(["Instance", "Description"], rows))
+            builder.add("<h2>4. Architecture Instances</h2>")
+            rows_html = "".join(
+                f'<tr><td>{_esc(get_declared_name(u))}</td>'
+                f'<td>{_esc(collapse_doc(get_unnamed_doc(u))[:120] or "—")}</td></tr>'
+                for u in sorted(arch_instances, key=get_declared_name)
+            )
+            builder.add(
+                '<table><thead><tr><th>Instance</th><th>Description</th></tr></thead>'
+                f'<tbody>{rows_html}</tbody></table>'
+            )
 
-    md_content = "\n".join(lines)
-    md_path = args.output / "logical_arch_report.md"
-    write_report(md_path, md_content, "LA-01 MD")
-    pdf_attempt(md_content, args.output / "logical_arch_report.pdf", "LA-01", number_sections=False)
+    # Markdown fallback
+    md_lines = ["# Logical Architecture Description (LA-01)\n",
+                f"**Project:** {project}\n"]
+    write_report(args.output / "logical_arch_report.md",
+                 "\n".join(md_lines), "LA-01 MD")
+    builder.render_pdf(args.output / "logical_arch_report.pdf")
 
 
 if __name__ == "__main__":

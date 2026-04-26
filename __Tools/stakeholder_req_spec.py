@@ -6,6 +6,7 @@ stakeholder-level requirement usages found in the model.
 
 Usage: python __Tools/stakeholder_req_spec.py <model_dir> [--output DIR]
 """
+import html as _html
 import sys
 from pathlib import Path
 from collections import defaultdict
@@ -14,9 +15,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_short_name, get_unnamed_doc, get_named_doc,
-    md_heading, md_table, write_report, collapse_doc, is_plain_req, pdf_attempt,
+    write_report, collapse_doc, is_plain_req,
 )
+from report_builder import ReportBuilder, load_report_config
 import syside
+
+
+def _esc(s: str) -> str:
+    return _html.escape(s or "")
 
 
 def in_pkg(element, *names) -> bool:
@@ -33,9 +39,10 @@ def in_pkg(element, *names) -> bool:
 
 
 def main():
-    args = parse_args("SN-05 Stakeholder Requirements Specification")
+    args    = parse_args("SN-05 Stakeholder Requirements Specification")
+    config  = load_report_config(args.script_config)
     model_dir = args.model_dir
-    project = model_dir.name
+    project   = model_dir.name
 
     with load_model(model_dir) as model:
         diags = model.diagnostics
@@ -51,57 +58,81 @@ def main():
             collect_typed(top, syside.RequirementUsage.STD, all_reqs)
 
         stakeholders = [p for p in part_defs if in_pkg(p, "StakeholderDef")]
-        strs_reqs = [r for r in all_reqs
-                     if is_plain_req(r) and in_pkg(r, "StakeholderRequirement")]
+        strs_reqs    = [r for r in all_reqs
+                        if is_plain_req(r) and in_pkg(r, "StakeholderRequirement")]
 
-        lines = [
-            md_heading("Stakeholder Requirements Specification (StRS)"),
-            f"**Project:** {project}\n",
-            "---\n",
-            md_heading("1. Introduction", 2),
-            f"This document is the Stakeholder Requirements Specification for **{project}**. "
-            "It identifies stakeholders, captures their concerns, and specifies the "
-            "stakeholder-level requirements that constrain the system design.\n",
-            md_heading("2. Stakeholder Register", 2),
-        ]
+        builder = ReportBuilder(
+            config,
+            doc_title  = "Stakeholder Requirements Specification",
+            doc_number = "SN-05",
+            project    = project,
+        )
 
+        # 1. Introduction
+        builder.add(
+            "<h2>1. Introduction</h2>"
+            f"<p>This document is the Stakeholder Requirements Specification for "
+            f"<strong>{_esc(project)}</strong>. It identifies stakeholders, captures "
+            "their concerns, and specifies the stakeholder-level requirements that "
+            "constrain the system design.</p>"
+        )
+
+        # 2. Stakeholder Register
+        builder.add("<h2>2. Stakeholder Register</h2>")
         if stakeholders:
-            rows = [[get_declared_name(s),
-                     collapse_doc(get_unnamed_doc(s))[:100] or "—"]
-                    for s in sorted(stakeholders, key=get_declared_name)]
-            lines.append(md_table(["Stakeholder", "Description"], rows))
+            rows_html = "".join(
+                f'<tr><td>{_esc(get_declared_name(s))}</td>'
+                f'<td>{_esc(collapse_doc(get_unnamed_doc(s))[:120] or "—")}</td></tr>'
+                for s in sorted(stakeholders, key=get_declared_name)
+            )
+            builder.add(
+                '<table><thead><tr><th>Stakeholder</th><th>Description</th></tr></thead>'
+                f'<tbody>{rows_html}</tbody></table>'
+            )
         else:
-            lines.append("> No stakeholder definitions found.\n")
+            builder.add("<p><em>No stakeholder definitions found.</em></p>")
 
-        lines.append(md_heading("3. Stakeholder Concerns", 2))
+        # 3. Stakeholder Concerns
+        builder.add("<h2>3. Stakeholder Concerns</h2>")
         if concern_defs:
-            rows = [[get_declared_name(c),
-                     collapse_doc(get_unnamed_doc(c))[:120] or "—"]
-                    for c in sorted(concern_defs, key=get_declared_name)]
-            lines.append(md_table(["Concern", "Description"], rows))
+            rows_html = "".join(
+                f'<tr><td>{_esc(get_declared_name(c))}</td>'
+                f'<td>{_esc(collapse_doc(get_unnamed_doc(c))[:140] or "—")}</td></tr>'
+                for c in sorted(concern_defs, key=get_declared_name)
+            )
+            builder.add(
+                '<table><thead><tr><th>Concern</th><th>Description</th></tr></thead>'
+                f'<tbody>{rows_html}</tbody></table>'
+            )
         else:
-            lines.append("> No concern definitions found.\n")
+            builder.add("<p><em>No concern definitions found.</em></p>")
 
-        lines.append(md_heading("4. Stakeholder Requirements", 2))
+        # 4. Stakeholder Requirements
+        builder.add("<h2>4. Stakeholder Requirements</h2>")
         if strs_reqs:
             for req in sorted(strs_reqs, key=lambda r: get_short_name(r)):
-                req_id = get_short_name(req) or get_declared_name(req)
+                req_id   = get_short_name(req) or get_declared_name(req)
                 req_name = get_declared_name(req)
-                doc = get_unnamed_doc(req)
-                rationale = get_named_doc(req, "Rationale")
-                lines.append(md_heading(f"{req_id}  `{req_name}`", 3))
-                lines.append(f"{doc or '*No requirement text.*'}\n")
-                if rationale:
-                    lines.append(f"**Rationale:** {rationale}\n")
+                doc      = get_unnamed_doc(req)
+                rationale= get_named_doc(req, "Rationale")
+                builder.add(
+                    f'<h3>{_esc(req_id)} <code>{_esc(req_name)}</code></h3>'
+                    f'<p>{_esc(doc) if doc else "<em>No requirement text.</em>"}</p>'
+                    + (f'<p><strong>Rationale:</strong> {_esc(rationale)}</p>'
+                       if rationale else "")
+                )
         else:
-            lines.append("> No stakeholder requirements found.\n")
-            lines.append("> Populate `requirements/stakeholder_requirements.sysml` or "
-                         "tag requirements with stakeholder package names.\n")
+            builder.add(
+                "<p><em>No stakeholder requirements found. "
+                "Populate requirements tagged with stakeholder package names.</em></p>"
+            )
 
-    md_content = "\n".join(lines)
-    md_path = args.output / "stakeholder_req_spec.md"
-    write_report(md_path, md_content, "SN-05 MD")
-    pdf_attempt(md_content, args.output / "stakeholder_req_spec.pdf", "SN-05")
+    # Markdown fallback
+    md_lines = ["# Stakeholder Requirements Specification (StRS)\n",
+                f"**Project:** {project}\n"]
+    write_report(args.output / "stakeholder_req_spec.md",
+                 "\n".join(md_lines), "SN-05 MD")
+    builder.render_pdf(args.output / "stakeholder_req_spec.pdf")
 
 
 if __name__ == "__main__":
