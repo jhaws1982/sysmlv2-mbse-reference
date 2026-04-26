@@ -8,6 +8,7 @@ generate_artifacts.py --config-json), or from artifacts.yaml 'report:' section.
 """
 
 import base64
+import html as _html
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -33,6 +34,7 @@ class ReportConfig:
     distribution_statement: str = ""
     doc_version: str = "1.0"
     author: str = ""
+    author_title: str = ""   # job title / role of the author
 
 
 def load_report_config(script_config: dict) -> ReportConfig:
@@ -47,6 +49,7 @@ def load_report_config(script_config: dict) -> ReportConfig:
         distribution_statement = rc.get("distribution_statement", ""),
         doc_version            = rc.get("doc_version", "1.0"),
         author                 = rc.get("author", ""),
+        author_title           = rc.get("author_title", ""),
     )
 
 
@@ -55,6 +58,10 @@ def load_report_config(script_config: dict) -> ReportConfig:
 def _esc_css(s: str) -> str:
     """Escape a Python string for use as a CSS quoted-string value."""
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\A ")
+
+
+def _esc(s: str) -> str:
+    return _html.escape(s or "")
 
 
 def _logo_data_url(logo_path: str) -> str:
@@ -154,6 +161,74 @@ def _generate_toc(html: str) -> tuple[str, str]:
     return modified, toc_html
 
 
+# ── Title page ────────────────────────────────────────────────────────────────
+
+def _meta_row(label: str, value: str) -> str:
+    return (f'<tr><td class="meta-label">{_esc(label)}</td>'
+            f'<td class="meta-value">{_esc(value)}</td></tr>')
+
+
+def build_title_page(config: ReportConfig, doc_title: str,
+                     doc_number: str, project: str) -> str:
+    """Return the HTML <div class="title-page"> block."""
+
+    # Logo
+    logo_url = _logo_data_url(config.logo_path)
+    logo_block = (
+        f'<div class="title-logo-area"><img class="org-logo" src="{logo_url}" alt=""></div>'
+        if logo_url else ""
+    )
+
+    # Document title + rule + subtitle
+    title_block = (
+        f'<div class="title-doc-title">{_esc(doc_title)}</div>'
+        '<hr class="title-rule">'
+        f'<div class="title-doc-subtitle">{_esc(project)}</div>'
+    )
+
+    # Metadata table rows
+    meta_rows: list[str] = []
+    if doc_number:
+        meta_rows.append(_meta_row("Document Number", doc_number))
+    meta_rows.append(_meta_row("Revision", config.doc_version))
+    meta_rows.append(_meta_row("Date", date.today().isoformat()))
+    if config.author:
+        meta_rows.append(_meta_row("Prepared By", config.author))
+    if config.author_title:
+        meta_rows.append(_meta_row("Title / Role", config.author_title))
+    if config.org_name:
+        meta_rows.append(_meta_row("Organization", config.org_name))
+    if config.org_email:
+        meta_rows.append(_meta_row("Contact", config.org_email))
+
+    meta_block = ""
+    if meta_rows:
+        meta_block = (
+            '<div class="title-meta-area">'
+            '<table class="title-meta-table"><tbody>'
+            + "".join(meta_rows) +
+            "</tbody></table></div>"
+        )
+
+    # Distribution statement
+    dist_block = ""
+    if config.distribution_statement:
+        dist_block = (
+            '<div class="title-distribution-area">'
+            f'<div class="distribution-box">{_esc(config.distribution_statement)}</div>'
+            "</div>"
+        )
+
+    return (
+        '<div class="title-page">'
+        f"{logo_block}"
+        f"{title_block}"
+        f"{meta_block}"
+        f"{dist_block}"
+        "</div>"
+    )
+
+
 # ── ReportBuilder ─────────────────────────────────────────────────────────────
 
 class ReportBuilder:
@@ -176,42 +251,17 @@ class ReportBuilder:
         """Append raw HTML to the document body."""
         self._parts.append(html)
 
-    # ── Internal builders ──────────────────────────────────────────────────────
-
-    def _title_page_html(self) -> str:
-        logo_url = _logo_data_url(self.config.logo_path)
-        logo_html = (f'<img class="org-logo" src="{logo_url}" alt="">'
-                     if logo_url else "")
-        dist_html = (f'<div class="distribution-box">'
-                     f'{self.config.distribution_statement}</div>'
-                     if self.config.distribution_statement else "")
-        author_html = (f'<div class="doc-meta">Author: {self.config.author}</div>'
-                       if self.config.author else "")
-        org_html = (f'<div class="doc-meta">{self.config.org_name}</div>'
-                    if self.config.org_name else "")
-        return (
-            '<div class="title-page">'
-            f"{logo_html}"
-            f'<div class="doc-title">{self.doc_title}</div>'
-            f'<div class="doc-subtitle">{self.project}</div>'
-            f'<div class="doc-number">{self.doc_number}</div>'
-            f'<div class="doc-meta">Version: {self.config.doc_version}</div>'
-            f'<div class="doc-meta">Date: {date.today().isoformat()}</div>'
-            f"{author_html}"
-            f"{org_html}"
-            f"{dist_html}"
-            "</div>"
-        )
-
     def _build_html_and_css(self) -> tuple[str, str]:
         body = "\n".join(self._parts)
         body_with_ids, toc_html = _generate_toc(body)
-        full_body = self._title_page_html() + "\n" + toc_html + "\n" + body_with_ids
+        title_html = build_title_page(
+            self.config, self.doc_title, self.doc_number, self.project)
+        full_body = title_html + "\n" + toc_html + "\n" + body_with_ids
 
         html = (
             "<!DOCTYPE html><html><head>"
             '<meta charset="utf-8">'
-            f"<title>{self.doc_title}</title>"
+            f"<title>{_esc(self.doc_title)}</title>"
             "</head><body>"
             f"{full_body}"
             "</body></html>"
@@ -223,8 +273,6 @@ class ReportBuilder:
         css = font_override + base_css + page_css
 
         return html, css
-
-    # ── Public render methods ──────────────────────────────────────────────────
 
     def render_pdf(self, output_path: Path) -> bool:
         """Render to PDF via weasyprint. Returns True on success."""

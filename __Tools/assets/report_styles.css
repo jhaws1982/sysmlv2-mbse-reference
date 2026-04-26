@@ -5,18 +5,18 @@
 :root {
     --doc-font-family: Georgia, serif;
     --font-size-title: 22pt;
-    --font-size-subtitle: 16pt;
+    --font-size-subtitle: 14pt;
     --font-size-h1: 16pt;
     --font-size-h2: 13pt;
     --font-size-h3: 11pt;
     --font-size-body: 10pt;
-    --font-size-table: 8.5pt;
+    --font-size-table: 9pt;
     --font-size-small: 8pt;
     --color-link: #2C7BB6;
-    --color-req-field-bg: #dce6f1;
-    --color-req-section-bg: #b8cce4;
-    --color-table-head-bg: #ececec;
-    --color-border: #999;
+    --color-label-bg: #f0f0f0;
+    --color-table-head-bg: #e8e8e8;
+    --color-border: #aaa;
+    --color-accent: #2C7BB6;
 }
 
 /* ── Page setup ──────────────────────────────────────────────────────────────── */
@@ -37,105 +37,133 @@ body {
     hyphens: auto;
 }
 
-/* ── Title page ──────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   TITLE PAGE
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .title-page {
     page-break-after: always;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     text-align: center;
-    padding: 3cm 1cm 2cm 1cm;
-    min-height: 22cm;
+    padding: 1.5cm 1cm 1.5cm 1cm;
 }
 
-.title-page .org-logo {
-    max-width: 6cm;
-    max-height: 2.5cm;
+/* Logo */
+.title-logo-area {
+    text-align: center;
+    margin-bottom: 1.5cm;
+}
+.title-logo-area .org-logo {
+    max-width: 7cm;
+    max-height: 3cm;
     object-fit: contain;
-    margin-bottom: 2cm;
 }
 
-.title-page .doc-title {
+/* Title block */
+.title-doc-title {
     font-size: var(--font-size-title);
     font-weight: bold;
-    margin: 0 0 0.4cm 0;
+    margin: 0 0 0.3cm 0;
+    line-height: 1.2;
 }
-
-.title-page .doc-subtitle {
+.title-rule {
+    border: none;
+    border-top: 2pt solid var(--color-accent);
+    margin: 0.35cm auto;
+    width: 85%;
+}
+.title-doc-subtitle {
     font-size: var(--font-size-subtitle);
     color: #333;
-    margin: 0 0 0.3cm 0;
+    margin: 0.2cm 0 0 0;
 }
 
-.title-page .doc-number {
+/* Metadata table (Document Number / Revision / Date / Author / etc.) */
+.title-meta-area {
+    margin: 1.5cm auto 0 auto;
+    text-align: center;
+}
+table.title-meta-table {
+    border-collapse: collapse;
+    margin: 0 auto;          /* center horizontally */
     font-size: var(--font-size-body);
+    border: 0.75pt solid #999;
+}
+table.title-meta-table td {
+    border: 0.5pt solid #ccc;
+    padding: 0.12cm 0.4cm;
+    vertical-align: top;
+}
+table.title-meta-table .meta-label {
+    background-color: #f0f0f0;
     font-weight: bold;
-    margin: 0.8cm 0 0.2cm 0;
-    color: #555;
+    text-align: right;
+    color: #444;
+    white-space: nowrap;
+    min-width: 4cm;
+}
+table.title-meta-table .meta-value {
+    text-align: left;
+    min-width: 6cm;
+    background-color: #fff;
 }
 
-.title-page .doc-meta {
-    font-size: var(--font-size-body);
-    color: #555;
-    margin: 0.1cm 0;
+/* Distribution statement box */
+.title-distribution-area {
+    margin-top: 1.8cm;
+    text-align: center;
 }
-
-.title-page .distribution-box {
-    margin-top: 2cm;
-    border: 1pt solid #777;
-    padding: 0.25cm 1.2cm;
-    font-size: var(--font-size-small);
-    color: #333;
-    letter-spacing: 0.04em;
+.distribution-box {
+    display: inline-block;
+    border: 1.5pt solid #333;
+    padding: 0.3cm 1.5cm;
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    color: #222;
+    background-color: #f8f8f8;
 }
 
-/* ── TOC page ────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   TABLE OF CONTENTS
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .toc-page {
     page-break-after: always;
 }
-
 .toc-page h2 {
     font-size: var(--font-size-h2);
     border-bottom: 0.5pt solid #ccc;
     padding-bottom: 0.2cm;
     margin-bottom: 0.5cm;
 }
-
 .toc a {
     display: block;
     text-decoration: none;
     color: #000;
 }
-
 .toc a::after {
     content: leader(dotted) " " target-counter(attr(href), page);
 }
-
 .toc a[data-level="1"] { display: none; }
 .toc a[data-level="2"] {
     font-size: var(--font-size-body);
     font-weight: bold;
-    margin: 0.2cm 0 0.08cm 0;
+    margin: 0.2cm 0 0.06cm 0;
 }
 .toc a[data-level="3"] {
     font-size: var(--font-size-table);
-    margin: 0.05cm 0 0.05cm 1cm;
+    margin: 0.04cm 0 0.04cm 1cm;
 }
 .toc a[data-level="4"],
 .toc a[data-level="5"],
 .toc a[data-level="6"] { display: none; }
 
-/* ── Headings ────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   HEADINGS
+   ══════════════════════════════════════════════════════════════════════════════ */
 
-h1 {
-    font-size: var(--font-size-h1);
-    font-weight: bold;
-    margin: 0.8cm 0 0.4cm 0;
-}
-
+h1 { font-size: var(--font-size-h1); font-weight: bold; margin: 0.8cm 0 0.4cm 0; }
 h2 {
     font-size: var(--font-size-h2);
     font-weight: bold;
@@ -143,23 +171,11 @@ h2 {
     padding-bottom: 0.1cm;
     margin: 0.7cm 0 0.3cm 0;
 }
-
-h3 {
-    font-size: var(--font-size-h3);
-    font-weight: bold;
-    margin: 0.5cm 0 0.2cm 0;
-}
-
-h4, h5, h6 {
-    font-size: var(--font-size-body);
-    font-weight: bold;
-    margin: 0.3cm 0 0.15cm 0;
-}
+h3 { font-size: var(--font-size-h3); font-weight: bold; margin: 0.5cm 0 0.15cm 0; }
+h4, h5, h6 { font-size: var(--font-size-body); font-weight: bold; margin: 0.3cm 0 0.1cm 0; }
 
 p { margin: 0 0 0.3cm 0; }
-
 a { color: var(--color-link); text-decoration: none; }
-
 code {
     font-family: monospace;
     font-size: 8.5pt;
@@ -167,98 +183,96 @@ code {
     padding: 0 0.1cm;
     border: 0.25pt solid #ddd;
 }
+hr { border: none; border-top: 0.5pt solid #ccc; margin: 0.5cm 0; }
 
-hr {
-    border: none;
-    border-top: 0.5pt solid #ccc;
-    margin: 0.5cm 0;
-}
-
-/* ── General tables ──────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   GENERAL TABLES
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 table {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--font-size-table);
     margin: 0.3cm 0;
+    table-layout: fixed;    /* prevents cell overflow */
+    word-break: break-word;
 }
-
 th, td {
     border: 0.5pt solid var(--color-border);
     padding: 0.12cm 0.2cm;
     vertical-align: top;
     text-align: left;
 }
-
 thead th {
     background-color: var(--color-table-head-bg);
     font-weight: bold;
 }
 
-/* ── Requirement blocks ──────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   REQUIREMENT BLOCKS  (2-column label | value layout, matching Sensmetry style)
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .req-block {
-    margin: 0.2cm 0 0.5cm 0;
-    page-break-inside: avoid;
+    margin: 0.15cm 0 0.5cm 0;
 }
 
-table.req-table {
-    border: 1pt solid #5a7fa8;
-    margin: 0;
-}
-
-table.req-table th,
-table.req-table td {
-    border: 0.5pt solid #8aaecc;
-    font-size: var(--font-size-table);
-}
-
-table.req-table th.req-field {
-    background-color: var(--color-req-field-bg);
+/* "Requirement details" / "Verification details" sub-section label */
+.req-section-label {
+    font-size: 10pt;
     font-weight: bold;
-    width: 14%;
+    margin: 0.3cm 0 0.1cm 0;
+    color: #333;
+    border-bottom: 0.75pt solid #aaa;
+    padding-bottom: 0.05cm;
+    text-align: left;
+}
+
+/* The 2-column details table */
+table.req-details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 0.2cm 0;
+    font-size: var(--font-size-table);
+    table-layout: fixed;
+}
+table.req-details-table th,
+table.req-details-table td {
+    border: 0.5pt solid #c0c0c0;
+    padding: 0.13cm 0.25cm;
+    vertical-align: top;
+}
+table.req-details-table th {
+    background-color: var(--color-label-bg);
+    font-weight: normal;
+    font-style: italic;
+    text-align: right;
+    width: 26%;
+    color: #444;
+    word-break: normal;     /* keep labels from wrapping mid-word */
     white-space: nowrap;
 }
-
-table.req-table th.section-header {
-    background-color: var(--color-req-section-bg);
-    font-weight: bold;
-    font-size: 7.5pt;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+table.req-details-table td {
+    background-color: #fff;
+    text-align: left;
+    width: 74%;
+    word-break: break-word;
 }
 
-.req-id-text {
-    color: var(--color-link);
-    font-weight: bold;
-}
-
-/* ── Per-requirement traceability diagram ────────────────────────────────────── */
-
-.req-diagram {
-    margin-top: 0.25cm;
+/* Diagram cell — image fills the value column, scales down if larger */
+table.req-details-table td.diag-cell {
     text-align: center;
-    page-break-inside: avoid;
+    padding: 0.2cm;
 }
-
-.req-diagram img {
+table.req-details-table td.diag-cell img {
     max-width: 100%;
     height: auto;
-    max-height: 7cm;
+    max-height: 9cm;
 }
 
-.req-diagram-caption {
-    font-size: var(--font-size-small);
-    color: #666;
-    margin-top: 0.1cm;
-    text-align: center;
-    font-style: italic;
-}
-
-/* ── Child requirements (indented) ──────────────────────────────────────────── */
+/* ── Child requirements (indented under parent) ───────────────────────────── */
 
 .req-children {
-    margin-left: 0.6cm;
+    margin-left: 0.5cm;
     padding-left: 0.5cm;
     border-left: 2pt solid #abd9e9;
     margin-top: 0.3cm;

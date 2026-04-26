@@ -168,22 +168,8 @@ def _esc(s: str) -> str:
     return _html.escape(s or "")
 
 
-def _row2(label1: str, val1: str, label2: str, val2: str) -> str:
-    return (f'<tr><th class="req-field">{_esc(label1)}</th>'
-            f'<td>{_esc(val1) or "—"}</td>'
-            f'<th class="req-field">{_esc(label2)}</th>'
-            f'<td>{_esc(val2) or "—"}</td></tr>')
-
-
-def _row_full(label: str, value: str, *, is_header: bool = False) -> str:
-    if is_header:
-        return f'<tr><th class="section-header" colspan="4">{_esc(label)}</th></tr>'
-    return f'<tr><td colspan="4">{_esc(value) or "<em>—</em>"}</td></tr>'
-
-
-def _row1(label: str, value: str) -> str:
-    return (f'<tr><th class="req-field">{_esc(label)}</th>'
-            f'<td colspan="3">{_esc(value) or "—"}</td></tr>')
+def _detail_row(label: str, value_html: str) -> str:
+    return f'<tr><th>{_esc(label)}</th><td>{value_html}</td></tr>'
 
 
 def format_req_html(req, depth: int, diagrams: dict[str, Path],
@@ -198,54 +184,46 @@ def format_req_html(req, depth: int, diagrams: dict[str, Path],
     def_type = get_def_type_name(req)
     ver_method, threshold = get_criteria_attrs(req)
 
-    # Build table
-    colgroup = ('<colgroup>'
-                '<col style="width:14%"><col style="width:36%">'
-                '<col style="width:14%"><col style="width:36%">'
-                '</colgroup>')
-    rows = [
-        colgroup,
-        (f'<tr><th class="req-field">ID</th>'
-         f'<td><span class="req-id-text">{_esc(req_id)}</span></td>'
-         f'<th class="req-field">Name</th>'
-         f'<td>{_esc(req_name)}</td></tr>'),
-        _row2("Type", def_type, "Priority", priority),
+    # 2-column details table (label right-aligned | content)
+    rows: list[str] = [
+        _detail_row("Identifier", f'<strong>{_esc(req_id)}</strong>'),
+        _detail_row("Type", _esc(def_type) or "—"),
     ]
+    if priority:
+        rows.append(_detail_row("Priority", _esc(priority)))
     if criticality:
-        rows.append(_row2("Criticality", criticality, "Source", source))
-    elif source:
-        rows.append(_row1("Source", source))
-
-    rows += [
-        _row_full("Requirement Text", "", is_header=True),
-        _row_full("", doc or "No requirement text."),
-    ]
+        rows.append(_detail_row("Criticality", _esc(criticality)))
+    if source:
+        rows.append(_detail_row("Source", _esc(source)))
+    rows.append(_detail_row("Description",
+                             _esc(doc) if doc else "<em>No requirement text.</em>"))
     if rationale:
-        rows += [
-            _row_full("Rationale", "", is_header=True),
-            _row_full("", rationale),
-        ]
-    if ver_method or threshold:
-        rows.append(_row2("Verification Method", ver_method,
-                          "Threshold", threshold))
+        rows.append(_detail_row("Rationale", _esc(rationale)))
+    if ver_method:
+        rows.append(_detail_row("Verification Method", _esc(ver_method)))
+    if threshold:
+        rows.append(_detail_row("Threshold", _esc(threshold)))
 
-    table_html = f'<table class="req-table">{"".join(rows)}</table>'
-
-    # Diagram
-    diag_html = ""
+    # Diagram in the last table row
     diag_path = diagrams.get(req_id)
     if diag_path and diag_path.exists():
         try:
             rel = diag_path.relative_to(out_dir)
-            diag_html = (
-                '<div class="req-diagram">'
-                f'<img src="{rel}" alt="{_esc(req_id)} traceability">'
-                f'<div class="req-diagram-caption">'
-                f'Requirement hierarchy for {_esc(req_id)}</div>'
-                '</div>'
+            rows.append(
+                f'<tr><th>Dependency Graph</th>'
+                f'<td class="diag-cell">'
+                f'<img src="{rel}" alt="{_esc(req_id)} hierarchy">'
+                f'</td></tr>'
             )
         except ValueError:
             pass
+
+    table_html = (
+        '<p class="req-section-label">Requirement details</p>'
+        '<table class="req-details-table"><tbody>'
+        + "".join(rows) +
+        "</tbody></table>"
+    )
 
     # Children
     children_html = ""
@@ -264,7 +242,6 @@ def format_req_html(req, depth: int, diagrams: dict[str, Path],
     return (f"{heading}"
             f'<div class="req-block">'
             f"{table_html}"
-            f"{diag_html}"
             f"{children_html}"
             "</div>")
 
