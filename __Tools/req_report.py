@@ -1,14 +1,18 @@
 """
 req_report.py
 
-Generates a requirements list and hierarchy diagrams from a SysML v2 model.
+Generates a requirements table and hierarchy diagrams from a SysML v2 model.
 
 Outputs:
-  1. requirements.md  — flat list with IDs as enumerators, doc annotations
-                        rendered with labels; unnamed doc is the requirement
-                        text, 'doc Rationale' is the rationale block.
-  2. req_hierarchy_<ID>.png — one Graphviz LR diagram per top-level requirement,
-     showing the full derivation tree with the current node highlighted.
+  1. requirements.md  — Markdown table with columns:
+       ID | Requirement Text | Rationale | Satisfied By | Derived From
+     "Satisfied By" lists the short IDs (or names) of elements that carry a
+     «satisfy» relationship to this requirement.
+     "Derived From" lists the short IDs (or names) of requirements from which
+     this requirement is derived via «derive» / nested-parent relationships.
+
+  2. req_hierarchy_<ID>.png — one Graphviz LR diagram per node, showing the
+     full hierarchy with the current node highlighted.
 
 Usage:
     python __Tools/req_report.py <model_dir>
@@ -63,10 +67,12 @@ class DocEntry:
 @dataclass
 class ReqNode:
     """A single requirement with its ID, name, doc annotations, and children."""
-    req_id:   str               # e.g. "A", "A.1", "A.2.1"
-    name:     str               # declared_name, e.g. "requirementA"
-    docs:     list[DocEntry]    # all doc annotations in declaration order
-    children: list["ReqNode"] = field(default_factory=list)
+    req_id:       str               # e.g. "A", "A.1", "A.2.1"
+    name:         str               # declared_name, e.g. "requirementA"
+    docs:         list[DocEntry]    # all doc annotations in declaration order
+    satisfied_by: list[str] = field(default_factory=list)  # short IDs of satisfying elements
+    derived_from: list[str] = field(default_factory=list)  # short IDs of source requirements
+    children:     list["ReqNode"] = field(default_factory=list)
 
     @property
     def req_text(self) -> str:
@@ -129,6 +135,45 @@ def get_req_id(req: syside.RequirementUsage) -> str:
     return get_name(req)
 
 
+def get_short_label(element) -> str:
+    """
+    Return the shortest useful label for a related element:
+    req_id / short_name if available, else declared_name, else qualified_name tail.
+    """
+    if element is None:
+        return ""
+    # Try req_id (for RequirementUsage)
+    try:
+        rid = element.req_id
+        if rid:
+            return str(rid).strip("'\"")
+    except Exception:
+        pass
+    # Try short_name
+    try:
+        sn = element.short_name
+        if sn:
+            return str(sn).strip("'\"")
+    except Exception:
+        pass
+    # Try declared_name
+    try:
+        dn = element.declared_name
+        if dn:
+            return dn
+    except Exception:
+        pass
+    # Fall back to tail of qualified_name
+    try:
+        qn = element.qualified_name
+        if qn:
+            parts = str(qn).split("::")
+            return parts[-1]
+    except Exception:
+        pass
+    return ""
+
+
 def _strip_doc_markers(body: str) -> str:
     """Remove /* */ comment markers and normalize leading * on continuation lines."""
     text = str(body).strip()
@@ -185,12 +230,128 @@ def is_plain_req(r) -> bool:
     )
 
 
-def build_req_tree(req: syside.RequirementUsage) -> ReqNode:
+# ── Relationship extraction ───────────────────────────────────────────────────
+
+def get_satisfied_by(req: syside.RequirementUsage) -> list[str]:
+    """
+    Return short labels for elements that satisfy this requirement via
+    SatisfyRequirementUsage relationships anywhere in the model.
+
+    SatisfyRequirementUsage is a RequirementUsage that references both
+    the requirement being satisfied and the satisfying feature.  We search
+    the already-collected global satisfy list (injected at call time), but
+    here we query the requirement's own owned relationships as a fallback.
+
+    Primary strategy: inspect owned members for SatisfyRequirementUsage
+    whose satisfied requirement points back to this req.
+    """
+    labels: list[str] = []
+    try:
+        # satisfaction_subject gives the elements that satisfy this requirement
+        for feat in req.satisfied_by_features.collect():
+            lbl = get_short_label(feat)
+            if lbl and lbl not in labels:
+                labels.append(lbl)
+    except Exception:
+        pass
+    return labels
+
+
+def get_derived_from(req: syside.RequirementUsage, parent_label: str | None) -> list[str]:
+    """
+    Return short labels for requirements that this requirement is derived from.
+
+    Two sources:
+      1. The parent ReqNode (nesting implies derivation in SysML v2).
+      2. DeriveRequirementUsage owned members (explicit «derive» annotations).
+    """
+    labels: list[str] = []
+    if parent_label:
+        labels.append(parent_label)
+
+    # Explicit derive usages (DeriveRequirementUsage inside this req's body)
+    try:
+        for member in req.owned_members.collect():
+            try:
+                if member.isinstance(syside.DeriveRequirementUsage.STD):
+                    derive = member.cast(syside.DeriveRequirementUsage.STD)
+                    # The source requirement(s) are the required constraints' subjects
+                    try:
+                        for src in derive.derived_requirements.collect():
+                            lbl = get_short_label(src)
+                            if lbl and lbl not in labels:
+                                labels.append(lbl)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return labels
+
+
+def get_global_satisfied_by(
+    req: syside.RequirementUsage,
+    satisfy_usages: list,
+) -> list[str]:
+    """
+    Search the global list of SatisfyRequirementUsage instances for any that
+    reference this requirement as the satisfied requirement.
+
+    This is necessary because satisfy statements are often declared in the
+    architecture package, not inside the requirement itself.
+    """
+    labels: list[str] = []
+    req_id_str = get_req_id(req)
+    req_name = get_name(req)
+
+    for su in satisfy_usages:
+        try:
+            # The requirement being satisfied
+            satisfied_req = su.satisfied_requirement
+            if satisfied_req is None:
+                continue
+            sr_id   = get_req_id(satisfied_req) if hasattr(satisfied_req, "req_id") else ""
+            sr_name = get_name(satisfied_req)
+            if (req_id_str and sr_id == req_id_str) or (req_name and sr_name == req_name):
+                # The satisfying feature
+                try:
+                    feat = su.satisfying_feature
+                    if feat is not None:
+                        lbl = get_short_label(feat)
+                        if lbl and lbl not in labels:
+                            labels.append(lbl)
+                except Exception:
+                    pass
+                # Also try the owning namespace (the part/block that declares the satisfy)
+                try:
+                    owner = su.owning_namespace
+                    if owner is not None:
+                        lbl = get_short_label(owner)
+                        if lbl and lbl not in labels:
+                            labels.append(lbl)
+                except Exception:
+                    pass
+        except Exception:
+            continue
+
+    return labels
+
+
+def build_req_tree(
+    req: syside.RequirementUsage,
+    satisfy_usages: list,
+    parent_label: str | None = None,
+) -> ReqNode:
     """Recursively build a ReqNode tree from a RequirementUsage."""
+    req_id = get_req_id(req)
     node = ReqNode(
-        req_id=get_req_id(req),
+        req_id=req_id,
         name=get_name(req),
         docs=get_all_docs(req),
+        satisfied_by=get_global_satisfied_by(req, satisfy_usages),
+        derived_from=get_derived_from(req, parent_label),
     )
     try:
         for child in req.nested_requirements.collect():
@@ -198,7 +359,9 @@ def build_req_tree(req: syside.RequirementUsage) -> ReqNode:
                 continue
             child_req = child.cast(syside.RequirementUsage.STD)
             if is_plain_req(child_req):
-                node.children.append(build_req_tree(child_req))
+                node.children.append(
+                    build_req_tree(child_req, satisfy_usages, parent_label=node.label)
+                )
     except Exception:
         pass
     return node
@@ -214,42 +377,36 @@ def flatten(node: ReqNode, depth: int = 0) -> list[tuple[int, ReqNode]]:
 
 # ── Markdown output ───────────────────────────────────────────────────────────
 
-def _md_doc_block(docs: list[DocEntry]) -> str:
-    """
-    Render doc annotations for the Markdown list.
-    Unnamed doc → no label prefix (it IS the requirement text).
-    Named doc   → bold label prefix, e.g. **Rationale:** ...
-    All bodies are single-line for list output; paragraph breaks become spaces.
-    """
-    parts = []
-    for d in docs:
-        # Collapse multiline to single line for list output
-        single_line = " ".join(d.body.split())
-        if d.name is None:
-            parts.append(single_line)
-        else:
-            parts.append(f"**{d.name}:** {single_line}")
-    return "\n\n  ".join(parts)
+def _md_escape(text: str) -> str:
+    """Escape pipe characters and collapse newlines for Markdown table cells."""
+    return " ".join(text.split()).replace("|", "\\|")
 
 
 def write_markdown(roots: list[ReqNode], output_dir: Path) -> Path:
+    """
+    Write a flat Markdown table with columns:
+      ID | Requirement Text | Rationale | Satisfied By | Derived From
+    """
     out = output_dir / "requirements.md"
-    lines = ["# Requirements\n"]
+    lines = [
+        "# Requirements\n",
+        "\n",
+        "| ID | Requirement Text | Rationale | Satisfied By | Derived From |\n",
+        "|:---|:-----------------|:----------|:-------------|:-------------|\n",
+    ]
+
     for root in roots:
-        for depth, node in flatten(root):
-            indent = "  " * depth
-            header_level = min(depth + 2, 6)
-            hashes = "#" * header_level
-            label = node.label
-            name_part = f" `{node.name}`" if node.name and node.name != label else ""
-            lines.append(f"{indent}{hashes} {label}{name_part}\n")
-            if node.docs:
-                doc_text = _md_doc_block(node.docs)
-                for part_line in doc_text.splitlines():
-                    lines.append(f"{indent}{part_line}\n")
-            else:
-                lines.append(f"{indent}_No documentation provided._\n")
-            lines.append("")
+        for _depth, node in flatten(root):
+            req_id      = _md_escape(node.label)
+            req_text    = _md_escape(node.req_text)    if node.req_text    else "_—_"
+            rationale   = _md_escape(node.rationale)   if node.rationale   else "_—_"
+            sat_by      = ", ".join(node.satisfied_by) if node.satisfied_by else "_—_"
+            derived_frm = ", ".join(node.derived_from) if node.derived_from else "_—_"
+
+            lines.append(
+                f"| {req_id} | {req_text} | {rationale} | {sat_by} | {derived_frm} |\n"
+            )
+
     out.write_text("".join(lines), encoding="utf-8")
     return out
 
@@ -272,31 +429,26 @@ def write_xlsx(roots: list[ReqNode], output_dir: Path) -> Path:
     header_fill  = PatternFill("solid", fgColor="1F4E79")
     wrap_align   = Alignment(wrap_text=True, vertical="top")
 
-    headers = ["ID", "Name", "Depth", "Requirement Text", "Rationale", "Additional Docs"]
+    headers = ["ID", "Requirement Text", "Rationale", "Satisfied By", "Derived From"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
-        cell.font   = header_font
-        cell.fill   = header_fill
+        cell.font      = header_font
+        cell.fill      = header_fill
         cell.alignment = wrap_align
 
     row_num = 2
     for root in roots:
-        for depth, node in flatten(root):
-            # Collect additional (non-text, non-rationale) docs
-            extra_docs = [
-                f"{d.name}: {' '.join(d.body.split())}"
-                for d in node.docs
-                if d.name is not None and d.name.lower() != "rationale"
-            ]
-            ws.cell(row=row_num, column=1, value=node.req_id or "").alignment = wrap_align
-            ws.cell(row=row_num, column=2, value=node.name or "").alignment = wrap_align
-            ws.cell(row=row_num, column=3, value=depth).alignment = wrap_align
-            ws.cell(row=row_num, column=4, value=node.req_text or "").alignment = wrap_align
-            ws.cell(row=row_num, column=5, value=node.rationale or "").alignment = wrap_align
-            ws.cell(row=row_num, column=6, value="\n".join(extra_docs)).alignment = wrap_align
+        for _depth, node in flatten(root):
+            ws.cell(row=row_num, column=1, value=node.label).alignment         = wrap_align
+            ws.cell(row=row_num, column=2, value=node.req_text).alignment       = wrap_align
+            ws.cell(row=row_num, column=3, value=node.rationale).alignment      = wrap_align
+            ws.cell(row=row_num, column=4,
+                    value=", ".join(node.satisfied_by)).alignment               = wrap_align
+            ws.cell(row=row_num, column=5,
+                    value=", ".join(node.derived_from)).alignment               = wrap_align
             row_num += 1
 
-    col_widths = [18, 30, 8, 70, 70, 50]
+    col_widths = [18, 70, 50, 30, 30]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = width
 
@@ -328,11 +480,11 @@ def _graphviz_label(node: ReqNode, highlight: bool) -> str:
     return f"<{body}>"
 
 
-def write_diagram(root: ReqNode, highlight: ReqNode, output_dir: Path) -> Path:
+def write_diagram(root: ReqNode, highlight: ReqNode, output_dir: Path) -> Path | None:
     """
     Render one hierarchy diagram for `root`, highlighting the `highlight` node.
 
-    Visibility rule (per ReqNode's ancestry):
+    Visibility rule:
       - All ancestors of `highlight` up to `root`
       - All siblings at every ancestor level
       - Direct children of `highlight` only (no grandchildren)
@@ -344,32 +496,35 @@ def write_diagram(root: ReqNode, highlight: ReqNode, output_dir: Path) -> Path:
               file=sys.stderr)
         return None
 
-    # Collect which nodes are visible
     # Build parent map for the whole subtree under root
     parent_map: dict[str, ReqNode] = {}
+
     def _index(n: ReqNode, parent: ReqNode | None = None):
-        if parent:
+        if parent is not None:
             parent_map[n.node_id] = parent
         for c in n.children:
             _index(c, n)
+
     _index(root)
 
-    # Ancestors of highlight (exclusive of highlight itself)
+    # Ancestors of highlight (not including highlight itself)
     def ancestors(n: ReqNode) -> list[ReqNode]:
-        chain = []
+        chain: list[ReqNode] = []
         cur = parent_map.get(n.node_id)
         while cur is not None:
             chain.append(cur)
             cur = parent_map.get(cur.node_id)
         return chain
 
-    ancestor_ids = {a.node_id for a in ancestors(highlight)}
+    anc_list = ancestors(highlight)
+    ancestor_ids = {a.node_id for a in anc_list}
     ancestor_ids.add(root.node_id)
 
-    # Siblings at every ancestor level (all children of ancestors)
+    # Siblings at every ancestor level — all children of each ancestor node
+    # FIX: iterate anc_list (list[ReqNode]) and root directly, not flatten() tuples
     sibling_ids: set[str] = set()
-    for anc in [root] + [n for n in flatten(root) if n[1].node_id in ancestor_ids]:
-        for c in anc[1].children:
+    for anc_node in [root] + anc_list:
+        for c in anc_node.children:
             sibling_ids.add(c.node_id)
 
     # Direct children of highlight
@@ -422,14 +577,23 @@ def run(model_dir: Path, fmt: str, output_dir: Path):
     print(f"Opening model at: {model_dir}")
     with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
         all_reqs: list[syside.RequirementUsage] = []
+        all_satisfy: list = []
+
         for element in iter_user_elements(model, model_dir):
             collect_typed(element, syside.RequirementUsage.STD, all_reqs)
 
-        plain_reqs = [r for r in all_reqs if is_plain_req(r)]
-        print(f"Found {len(plain_reqs)} requirement usage(s).")
+        # Separate plain reqs from satisfy usages
+        plain_reqs = []
+        for r in all_reqs:
+            if r.isinstance(syside.SatisfyRequirementUsage.STD):
+                all_satisfy.append(r.cast(syside.SatisfyRequirementUsage.STD))
+            elif is_plain_req(r):
+                plain_reqs.append(r)
 
-        # Separate top-level from nested: a top-level req has no parent req in the list
-        all_req_ids_set = {id(r) for r in plain_reqs}
+        print(f"Found {len(plain_reqs)} requirement usage(s), "
+              f"{len(all_satisfy)} satisfy relationship(s).")
+
+        # Identify top-level requirements (not nested inside another req)
         nested_ids: set[int] = set()
         for r in plain_reqs:
             try:
@@ -440,7 +604,7 @@ def run(model_dir: Path, fmt: str, output_dir: Path):
                 pass
         top_level = [r for r in plain_reqs if id(r) not in nested_ids]
 
-        roots = [build_req_tree(r) for r in top_level]
+        roots = [build_req_tree(r, all_satisfy) for r in top_level]
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -460,7 +624,7 @@ def run(model_dir: Path, fmt: str, output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate SysML v2 requirements list and hierarchy diagrams."
+        description="Generate SysML v2 requirements table and hierarchy diagrams."
     )
     parser.add_argument(
         "model_dir",

@@ -20,7 +20,7 @@ from _tool_utils import (
     get_def_type_name, write_report, collapse_doc, is_plain_req,
 )
 from report_builder import ReportBuilder, load_report_config
-from req_hierarchy import build_node, render_diagram
+from req_hierarchy import build_node, flatten, render_all, diagram_filename
 
 import syside
 
@@ -55,16 +55,6 @@ SECTION_ORDER = [
     "3.12 Design Constraint Requirements",
     "Other",
 ]
-
-# Diagram config: ID-only nodes (show_doc=False)
-DIAG_CFG = {
-    "diagram_format": "png",
-    "rankdir": "LR",
-    "spline": "spline",
-    "node_doc_max_chars": 0,
-    "show_children": True,
-    "show_doc": False,
-}
 
 
 # ── Attribute extraction ──────────────────────────────────────────────────────
@@ -140,29 +130,33 @@ def get_subreqs(req) -> list:
 
 # ── Diagram generation ────────────────────────────────────────────────────────
 
-def _safe_id(req_id: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_]", "_", req_id)
-
-
 def generate_diagrams(root_reqs: list, diagrams_dir: Path) -> dict[str, Path]:
-    """Build ReqNode trees for all root reqs and render ID-only diagrams.
-    Returns dict: req_id → diagram_path (only for successfully rendered diagrams)."""
-    rendered: dict[str, Path] = {}
+    """
+    Build ReqNode trees for all root reqs and render ID-only diagrams
+    (show_doc=False) for use in the SRS report.
 
-    def _render_tree(node):
-        out = diagrams_dir / f"req_{_safe_id(node.label)}.png"
-        if render_diagram(node, out, DIAG_CFG):
-            rendered[node.label] = out
-        for child in node.children:
-            _render_tree(child)
+    Delegates entirely to req_hierarchy.render_all so that filename
+    generation uses the same canonical diagram_filename() logic — no
+    duplicate files with differing separator characters.
 
-    for req in root_reqs:
-        _render_tree(build_node(req))
-
-    return rendered
+    Returns dict: req_id (node.label) → diagram_path.
+    """
+    roots = [build_node(req) for req in root_reqs]
+    return render_all(roots, diagrams_dir, show_doc=False)
 
 
 # ── HTML requirement table ────────────────────────────────────────────────────
+
+def _anchor_id(req_id: str) -> str:
+    """Slugify a req ID for HTML anchors (id=\"req-...\"). Not used for filenames."""
+    return re.sub(r"[^A-Za-z0-9_]", "_", req_id)
+
+
+def _anchor_id(req_id: str) -> str:
+    """Slugify a req ID for use as an HTML anchor (id="req-..."). Not used for filenames."""
+    return re.sub(r"[^A-Za-z0-9_]", "_", req_id)
+
+
 
 def _esc(s: str) -> str:
     return _html.escape(s or "")
@@ -234,7 +228,7 @@ def format_req_html(req, depth: int, diagrams: dict[str, Path],
         children_html = '<div class="req-children">' + "\n".join(child_parts) + "</div>"
 
     heading_level = min(3 + depth, 6)
-    safe = _safe_id(req_id).lower()
+    safe = _anchor_id(req_id)
     heading = (f'<h{heading_level} id="req-{safe}">'
                f'{_esc(req_id)} <code>{_esc(req_name)}</code>'
                f'</h{heading_level}>')
@@ -306,7 +300,7 @@ def main():
         index_rows = []
         for req in sorted(root_reqs, key=lambda r: get_short_name(r)):
             rid = get_short_name(req) or "—"
-            safe = _safe_id(rid).lower()
+            safe = _anchor_id(rid)
             index_rows.append(
                 f'<tr>'
                 f'<td><a href="#req-{safe}">{_esc(rid)}</a></td>'
