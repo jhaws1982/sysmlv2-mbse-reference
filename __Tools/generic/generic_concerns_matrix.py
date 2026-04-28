@@ -27,7 +27,7 @@ import csv
 import argparse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tool_utils import iter_user_elements, collect_user_sysml_files
 import syside
 from syside.preview import open_model

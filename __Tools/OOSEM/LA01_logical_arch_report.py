@@ -10,7 +10,7 @@ import html as _html
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
     get_declared_name, get_unnamed_doc,

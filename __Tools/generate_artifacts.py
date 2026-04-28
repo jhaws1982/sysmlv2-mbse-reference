@@ -2,11 +2,15 @@
 generate_artifacts.py — OOSEM Artifact Generation Orchestrator
 
 Reads artifacts.yaml, executes the selected scripts, and prints a summary.
+Script names in artifacts.yaml are relative to __Tools/ and may include
+a subdirectory prefix, e.g.:
+    OOSEM/SR-01_sys_req_spec
+    generic/generic_req_validate
 
 Usage:
     python __Tools/generate_artifacts.py --suite all
     python __Tools/generate_artifacts.py --suite diagnostics
-    python __Tools/generate_artifacts.py --script req_completeness
+    python __Tools/generate_artifacts.py --script OOSEM/SR-05_req_completeness
     python __Tools/generate_artifacts.py --list
     python __Tools/generate_artifacts.py --suite all --dry-run
     python __Tools/generate_artifacts.py --suite formal_docs --config path/to/artifacts.yaml
@@ -40,6 +44,14 @@ def model_root(config: dict, cfg_path: Path) -> Path:
 
 
 def script_path(name: str) -> Path:
+    """
+    Resolve a script name (possibly with subdirectory prefix) to an absolute path.
+
+    Examples:
+        "OOSEM/SR-01_sys_req_spec"  →  __Tools/OOSEM/SR-01_sys_req_spec.py
+        "generic/generic_req_validate" → __Tools/generic/generic_req_validate.py
+        "SR-01_sys_req_spec"        →  __Tools/SR-01_sys_req_spec.py  (legacy flat)
+    """
     return TOOLS_DIR / f"{name}.py"
 
 
@@ -64,11 +76,39 @@ def sep(char="─", w=72):
     print(char * w)
 
 
+def _subdir(name: str) -> str:
+    """Return the subdirectory portion of a script name, or '' for flat names."""
+    parts = name.split("/")
+    return parts[0] if len(parts) > 1 else ""
+
+
+def _list_suites(suites: dict):
+    """Print all suites grouped by subdirectory, with existence marks."""
+    print()
+    prev_subdir = None
+    for suite_name, suite in suites.items():
+        desc    = suite.get("description", "")
+        scripts = suite.get("scripts", [])
+        print(f"  Suite: {suite_name:<20} {desc}")
+        cur_subdir = None
+        for s in scripts:
+            sd = _subdir(s)
+            if sd != cur_subdir:
+                cur_subdir = sd
+                label = f"[{sd}/]" if sd else "[__Tools/]"
+                print(f"      {label}")
+            mark = "✓" if script_path(s).exists() else "✗ MISSING"
+            basename = s.split("/")[-1]
+            print(f"        {mark}  {basename}.py")
+        print()
+
+
 def main():
     p = argparse.ArgumentParser(description="OOSEM Artifact Generation Orchestrator")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--suite",  metavar="NAME")
-    g.add_argument("--script", metavar="NAME")
+    g.add_argument("--script", metavar="NAME",
+                   help="Run a single script by name, e.g. OOSEM/SR-05_req_completeness")
     g.add_argument("--list",   action="store_true")
     p.add_argument("--config",   default=str(DEFAULT_CFG))
     p.add_argument("--dry-run",  action="store_true")
@@ -87,15 +127,8 @@ def main():
     project    = config.get("model", {}).get("project_name", "")
 
     if args.list:
-        print(f"\nAvailable suites in {cfg_path.name}:\n")
-        for name, suite in suites.items():
-            desc = suite.get("description", "")
-            scripts = suite.get("scripts", [])
-            print(f"  {name:<20} {desc}")
-            for s in scripts:
-                mark = "✓" if script_path(s).exists() else "✗ MISSING"
-                print(f"    {mark}  {s}.py")
-        print()
+        print(f"\nAvailable suites in {cfg_path.name}:")
+        _list_suites(suites)
         return
 
     if args.script:
@@ -103,7 +136,8 @@ def main():
         label = f"script:{args.script}"
     else:
         if args.suite not in suites:
-            print(f"ERROR: Suite '{args.suite}' not found. Available: {', '.join(suites)}")
+            print(f"ERROR: Suite '{args.suite}' not found. "
+                  f"Available: {', '.join(suites)}")
             sys.exit(1)
         scripts_to_run = suites[args.suite].get("scripts", [])
         label = f"suite:{args.suite}"
@@ -121,17 +155,19 @@ def main():
     t_total = time.monotonic()
 
     for name in scripts_to_run:
-        sp = script_path(name)
+        sp  = script_path(name)
         cfg = dict(scr_cfg.get(name, {}))
         if report_cfg:
             cfg["report"] = report_cfg
         if args.dry_run:
-            mark = "✓" if sp.exists() else "✗ MISSING"
-            print(f"  {mark}  {name}.py")
+            mark     = "✓" if sp.exists() else "✗ MISSING"
+            basename = name.split("/")[-1]
+            print(f"  {mark}  {name}/{basename}.py")
             results.append((name, True, "", 0.0))
             continue
 
-        print(f"\n  Running {name}.py ...", end=" ", flush=True)
+        basename = name.split("/")[-1]
+        print(f"\n  Running {name}/{basename}.py ...", end=" ", flush=True)
         ok, out, elapsed = run_script(sp, root, cfg)
         print(f"{'✓ OK' if ok else '✗ FAIL'}  ({elapsed:.1f}s)")
         if out:
@@ -142,7 +178,7 @@ def main():
         results.append((name, ok, out, elapsed))
 
     if not args.dry_run:
-        total = time.monotonic() - t_total
+        total  = time.monotonic() - t_total
         passed = sum(1 for _, ok, _, _ in results if ok)
         failed = len(results) - passed
         print()
@@ -153,7 +189,8 @@ def main():
             print("\n  Failed scripts:")
             for name, ok, _, _ in results:
                 if not ok:
-                    print(f"    ✗  {name}.py")
+                    basename = name.split("/")[-1]
+                    print(f"    ✗  {name}/{basename}.py")
             sys.exit(1)
         print()
 

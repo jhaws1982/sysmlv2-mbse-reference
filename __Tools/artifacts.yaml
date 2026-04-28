@@ -2,10 +2,14 @@
 # artifacts.yaml — OOSEM Artifact Generation Configuration
 # SysML v2 MBSE Reference
 #
+# Script names reference paths relative to __Tools/:
+#   OOSEM/<ID>_<name>   — official OOSEM artifact scripts
+#   generic/<name>      — utility scripts without a direct OOSEM artifact ID
+#
 # Usage:
 #   python __Tools/generate_artifacts.py --suite all
 #   python __Tools/generate_artifacts.py --suite diagnostics
-#   python __Tools/generate_artifacts.py --script req_completeness
+#   python __Tools/generate_artifacts.py --script OOSEM/SR05_req_completeness
 #   python __Tools/generate_artifacts.py --list
 #   python __Tools/generate_artifacts.py --suite formal_docs --dry-run
 # =============================================================================
@@ -38,84 +42,84 @@ suites:
   stakeholder:
     description: "Phase 1 — All stakeholder artifacts"
     scripts:
-      - stakeholder_register
-      - use_case_catalog
-      - opscon_report
-      - stakeholder_req_spec
-      - stakeholder_traceability
+      - OOSEM/SN01_stakeholder_register
+      - OOSEM/SN03_use_case_catalog
+      - OOSEM/SN04_opscon_report
+      - OOSEM/SN05_stakeholder_req_spec
+      - OOSEM/SN06_stakeholder_traceability
 
   requirements:
     description: "Phase 2 — All system requirements artifacts"
     scripts:
-      - sys_req_spec
-      - req_hierarchy
-      - req_traceability
-      - req_completeness
-      - req_quality
+      - OOSEM/SR01_sys_req_spec
+      - OOSEM/SR02_req_hierarchy
+      - OOSEM/SR03_req_traceability
+      - OOSEM/SR05_req_completeness
+      - OOSEM/SR06_req_quality
 
   logical:
     description: "Phase 3 — All logical architecture artifacts"
     scripts:
-      - logical_arch_report
-      - logical_decomposition
-      - interface_catalog
-      - behavioral_summary
-      - req_allocation
-      - logical_completeness
+      - OOSEM/LA01_logical_arch_report
+      - OOSEM/LA02_logical_decomposition
+      - OOSEM/LA03_interface_catalog
+      - OOSEM/LA04_behavioral_summary
+      - OOSEM/LA05_req_allocation
+      - OOSEM/LA06_logical_completeness
 
   risk:
-    description: "Risk register report — all @RiskItem annotations across the model"
+    description: "RM-01 Risk register — all @RiskItem annotations across the model"
     scripts:
-      - risk_report
+      - OOSEM/RM01_risk_report
 
   diagnostics:
     description: "Gap and completeness checks only — no formal documents"
     scripts:
-      - req_completeness
-      - req_quality
-      - logical_completeness
+      - OOSEM/SR05_req_completeness
+      - OOSEM/SR06_req_quality
+      - OOSEM/LA06_logical_completeness
 
   formal_docs:
     description: "Formal PDF deliverables only"
     scripts:
-      - opscon_report
-      - stakeholder_req_spec
-      - sys_req_spec
-      - logical_arch_report
+      - OOSEM/SN04_opscon_report
+      - OOSEM/SN05_stakeholder_req_spec
+      - OOSEM/SR01_sys_req_spec
+      - OOSEM/LA01_logical_arch_report
 
   all:
-    description: "Full Phase 1-3 artifact generation"
+    description: "Full Phase 1-3 artifact generation + risk register"
     scripts:
-      - stakeholder_register
-      - use_case_catalog
-      - opscon_report
-      - stakeholder_req_spec
-      - stakeholder_traceability
-      - sys_req_spec
-      - req_hierarchy
-      - req_traceability
-      - req_completeness
-      - req_quality
-      - logical_arch_report
-      - logical_decomposition
-      - interface_catalog
-      - behavioral_summary
-      - req_allocation
-      - logical_completeness
-      - risk_report
+      - OOSEM/SN01_stakeholder_register
+      - OOSEM/SN03_use_case_catalog
+      - OOSEM/SN04_opscon_report
+      - OOSEM/SN05_stakeholder_req_spec
+      - OOSEM/SN06_stakeholder_traceability
+      - OOSEM/SR01_sys_req_spec
+      - OOSEM/SR02_req_hierarchy
+      - OOSEM/SR03_req_traceability
+      - OOSEM/SR05_req_completeness
+      - OOSEM/SR06_req_quality
+      - OOSEM/LA01_logical_arch_report
+      - OOSEM/LA02_logical_decomposition
+      - OOSEM/LA03_interface_catalog
+      - OOSEM/LA04_behavioral_summary
+      - OOSEM/LA05_req_allocation
+      - OOSEM/LA06_logical_completeness
+      - OOSEM/RM01_risk_report
 
 script_config:
 
-  sys_req_spec:
+  OOSEM/SR01_sys_req_spec:
     include_rationale: true
     include_verification_method: true
     include_derivation_source: true
 
-  stakeholder_req_spec:
+  OOSEM/SN05_stakeholder_req_spec:
     include_concern_mapping: true
     include_use_case_refs: true
 
-  req_quality:
+  OOSEM/SR06_req_quality:
     ambiguous_terms:
       - adequate
       - as necessary
@@ -134,16 +138,16 @@ script_config:
     min_doc_word_count: 8
     check_shall_pattern: true
 
-  req_completeness:
+  OOSEM/SR05_req_completeness:
     require_derivation_source: false
     require_verification_link: false
     require_allocation: true
 
-  logical_completeness:
+  OOSEM/LA06_logical_completeness:
     require_allocated_requirement: true
     require_perform_link: true
 
-  req_hierarchy:
+  OOSEM/SR02_req_hierarchy:
     diagram_format: "png"
     rankdir: "LR"
     spline: "spline"

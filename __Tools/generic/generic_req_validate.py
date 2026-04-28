@@ -41,7 +41,7 @@ import re
 import argparse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tool_utils import iter_user_elements, collect_user_sysml_files
 from dataclasses import dataclass, field
 from enum import Enum

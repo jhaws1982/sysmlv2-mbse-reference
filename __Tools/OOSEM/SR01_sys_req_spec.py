@@ -13,6 +13,7 @@ import html as _html
 from pathlib import Path
 from collections import defaultdict
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 from _tool_utils import (
     parse_args, load_model, collect_typed, iter_user_elements,
@@ -20,7 +21,7 @@ from _tool_utils import (
     get_def_type_name, write_report, collapse_doc, is_plain_req,
 )
 from report_builder import ReportBuilder, load_report_config
-from req_hierarchy import build_node, flatten, render_all, diagram_filename
+from SR02_req_hierarchy import build_node, flatten, render_all, diagram_filename
 
 import syside
 
