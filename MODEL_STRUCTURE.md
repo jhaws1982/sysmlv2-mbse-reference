@@ -27,7 +27,8 @@ sysmlv2-mbse-reference/
 │
 ├── 00_Shared/
 │   ├── SRS_Definitions.sysml     ← Requirement def library (DI-IPSC-81433A)
-│   │                               Updated: doc-convention (no id/text/rationale attrs)
+│   │                               Doc-convention: unnamed doc + doc Rationale
+│   │                               (no id/text/rationale string attributes)
 │   ├── Data_Types.sysml          ← Shared data type and enum definitions
 │   └── _namespace.sysml          ← Hub: package Shared { Data, SRS }
 │
@@ -51,9 +52,6 @@ sysmlv2-mbse-reference/
 │   │                               Source for SN-03, SN-06.
 │   │
 │   ├── Logical/                  ← All architecture and logical modeling
-│   │   │                           Feature components and logical subsystems
-│   │   │                           live here as separate leaf files — one
-│   │   │                           concern per file, all under one sub-package.
 │   │   ├── FeatureA.sysml        ← leaf: FeatureA        (feature component + port def)
 │   │   ├── FeatureB.sysml        ← leaf: FeatureB        (feature component + port def)
 │   │   ├── FeatureC.sysml        ← leaf: FeatureC        (integration component)
@@ -71,7 +69,7 @@ sysmlv2-mbse-reference/
 │   │       ├── state_machines.sysml  ← leaf: StateMachines
 │   │       └── action_sequences.sysml ← leaf: ActionSequences
 │   │
-│   ├── Requirements/             ← Core CSCI requirements (existing, updated)
+│   ├── Requirements/             ← Core CSCI requirements
 │   │   ├── Requirements_Def.sysml ← leaf: RequirementsDef (stable req types)
 │   │   └── Requirements_Decl.sysml ← leaf: RequirementsDecl (req usages, doc-convention)
 │   │
@@ -96,17 +94,12 @@ sysmlv2-mbse-reference/
 │   │   │   ├── system.sysml      ← leaf: ProgramA_System
 │   │   │   │                       Top-level logical system assembly.
 │   │   │   │                       Composes core system + program config.
-│   │   │   │                       This is what requirements and verification
-│   │   │   │                       cases use as their subject.
-│   │   │   │                       Add program-specific subsystems here.
-│   │   │   │                       Change driver: architecture changes.
 │   │   │   └── deployment.sysml  ← leaf: ProgramA_Deployment
-│   │   │                           Operational deployment context: hardware
-│   │   │                           platform, OS, site topology.
-│   │   │                           Instantiates ProgramA_SystemDef in its
-│   │   │                           operational environment.
-│   │   │                           Change driver: environment changes.
+│   │   │                           Operational deployment context.
 │   │   ├── Requirements/         ← leaf: ProgramA_Requirements (doc-convention)
+│   │   │   └── Requirements.sysml  Package: ProgramA_Requirements
+│   │   │                           Convention: <ProgramName>_Requirements
+│   │   │                           SR-04 --program flag filters by this package name.
 │   │   └── Verification/         ← leaf: ProgramA_Verification
 │   │
 │   ├── Program_B/  (same structure as Program_A)
@@ -119,8 +112,8 @@ sysmlv2-mbse-reference/
 │   └── _namespace.sysml          ← Hub: package Verification { TestCases, Traceability }
 │
 │   Note: Results.sysml removed. Live test results are not stored in the model.
-│   result_matrix.py reads from CTest JUnit XML / ATP documents and joins
-│   against verification names declared in Traceability.sysml.
+│   generic_result_matrix.py reads from CTest JUnit XML and joins against
+│   verification names declared in Traceability.sysml.
 │
 ├── Model.sysml                   ← Top-level index (imports only, no definitions)
 ├── README.md                     ← Project overview and quick-start
@@ -128,36 +121,45 @@ sysmlv2-mbse-reference/
 ├── MODEL_STRUCTURE.md            ← This file
 │
 └── __Tools/
-    ├── generate_artifacts.py     ← Orchestrator
+    ├── generate_artifacts.py     ← Orchestrator — runs suites from artifacts.yaml
     ├── artifacts.yaml            ← Suite definitions + per-script config
-    ├── _tool_utils.py            ← Shared library for OOSEM tools
+    ├── _tool_utils.py            ← Shared utilities (imported by all scripts)
+    ├── report_builder.py         ← PDF/HTML rendering infrastructure
+    ├── requirements.txt          ← Python dependencies
     │
-    ├── OOSEM artifact scripts:
-    │   ├── stakeholder_register.py    SR-01 / SN-01
-    │   ├── use_case_catalog.py        SN-03
-    │   ├── opscon_report.py           SN-04
-    │   ├── stakeholder_req_spec.py    SN-05
-    │   ├── stakeholder_traceability.py SN-06
-    │   ├── sys_req_spec.py            SR-01
-    │   ├── req_hierarchy.py           SR-02
-    │   ├── req_traceability.py        SR-03
-    │   ├── req_completeness.py        SR-05
-    │   ├── req_quality.py             SR-06
-    │   ├── logical_arch_report.py     LA-01
-    │   ├── logical_decomposition.py   LA-02
-    │   ├── interface_catalog.py       LA-03
-    │   ├── behavioral_summary.py      LA-04
-    │   ├── req_allocation.py          LA-05
-    │   └── logical_completeness.py    LA-06
+    ├── OOSEM/                    ← Official OOSEM artifact scripts, named by artifact ID
+    │   │                           Scripts in this directory use sys.path to reach
+    │   │                           __Tools/ for _tool_utils and report_builder imports.
+    │   │
+    │   ├── SN01_stakeholder_register.py     SN-01 Stakeholder Register
+    │   ├── SN03_use_case_catalog.py         SN-03 Use Case Catalog
+    │   ├── SN04_opscon_report.py            SN-04 Operational Concept Description
+    │   ├── SN05_stakeholder_req_spec.py     SN-05 Stakeholder Requirements Spec
+    │   ├── SN06_stakeholder_traceability.py SN-06 Stakeholder → Use Case Traceability
+    │   ├── SR01_sys_req_spec.py             SR-01 System Requirements Specification
+    │   ├── SR02_req_hierarchy.py            SR-02 Requirements Hierarchy / Decomposition
+    │   ├── SR03_req_traceability.py         SR-03 Stakeholder → System Req Traceability
+    │   ├── SR04_req_traceability_matrix.py  SR-04 Requirements Derivation Matrix       ← NEW
+    │   ├── SR05_req_completeness.py         SR-05 Requirements Completeness Gap Report
+    │   ├── SR06_req_quality.py              SR-06 Requirements Quality Report
+    │   ├── LA01_logical_arch_report.py      LA-01 Logical Architecture Description
+    │   ├── LA02_logical_decomposition.py    LA-02 Logical Block Decomposition
+    │   ├── LA03_interface_catalog.py        LA-03 Interface Catalog
+    │   ├── LA04_behavioral_summary.py       LA-04 Behavioral Summary
+    │   ├── LA05_req_allocation.py           LA-05 Requirements Allocation Matrix
+    │   ├── LA06_logical_completeness.py     LA-06 Logical Architecture Completeness
+    │   └── RM01_risk_report.py              RM-01 Risk Register
     │
-    └── Original toolchain (retained):
-        ├── req_validate.py        Full SRS validation (updated for doc-convention)
-        ├── req_report.py          Requirements list + hierarchy (predecessor to req_hierarchy.py)
-        ├── result_matrix.py       V&V result status (CTest XML)
-        ├── concerns_matrix.py     Concern → requirement coverage
-        ├── satisfaction_matrix.py Requirement → architecture satisfaction
-        ├── coverage_matrix.py     Requirement → verification coverage
-        └── dependency_map.py      Executable dependency mapping
+    └── generic/                  ← Utility scripts without a direct OOSEM artifact ID
+        ├── generic_concern_report.py        Stakeholder concern narrative report
+        ├── generic_concerns_matrix.py       Concern → requirement coverage matrix
+        ├── generic_coverage_matrix.py       Requirement → verification coverage matrix
+        ├── generic_dependency_map.py        Executable dependency relationship mapping
+        ├── generic_req_debug.py             Requirement element inspection / API debugging
+        ├── generic_req_report.py            Requirements table with satisfy/derive columns
+        ├── generic_req_validate.py          Full SRS requirement validation
+        ├── generic_result_matrix.py         V&V result status joined from CTest JUnit XML
+        ├── generic_satisfaction_matrix.py   Requirement → architecture satisfaction matrix
 ```
 
 ---
@@ -173,16 +175,15 @@ package ProgramA_System {
     private import Core::Logical::*;
     private import ProgramA::*;
 
-    // Program-specific subsystem definition
     part def ProgramA_SensorSubsystem {
         doc /* Sensor processing subsystem unique to Program A. */
         port sensorIn : SensorDataPort;
     }
 
     part def ProgramA_SystemDef {
-        part core        : CoreSystem_Assembly;
-        part config      : ProgramA_Config;
-        part sensorSys   : ProgramA_SensorSubsystem; // program-specific addition
+        part core      : CoreSystem_Assembly;
+        part config    : ProgramA_Config;
+        part sensorSys : ProgramA_SensorSubsystem;
     }
 }
 ```
@@ -190,6 +191,17 @@ package ProgramA_System {
 For program-specific use cases, context, or allocations that grow large
 enough to warrant separate files, add them as additional leaves inside
 `Architecture/` and register them in `04_Programs/_namespace.sysml`.
+
+---
+
+## Adding a New Program
+
+1. Create `04_Programs/Program_X/` with the standard subdirectory structure
+2. Add `Program_X/Requirements/Requirements.sysml` with package `ProgramX_Requirements`
+   — the naming convention `<DirName without underscores>_Requirements` is required
+   for `SR04_req_traceability_matrix.py --program Program_X` to resolve correctly
+3. Register the new program in `04_Programs/_namespace.sysml`
+4. Add `ProgramX` to the `Programs` hub package
 
 ---
 
@@ -242,7 +254,7 @@ requirement <'REQ-CAP-001'> myRequirement : CapabilityRequirement {
     part :>> criteria : VerificationCriteria {
         doc
         /* Test setup and PASS/FAIL condition in narrative prose. */
-        attribute :>> verificationMethod = VerificationMethodKind::Test;
+        attribute :>> verificationMethod = VerificationMethodKind::test;
         attribute :>> threshold          = "compact measurable bound";
     }
 }
@@ -250,7 +262,7 @@ requirement <'REQ-CAP-001'> myRequirement : CapabilityRequirement {
 
 **Removed — no longer in `SRS_Definitions.sysml`:**
 - `id`, `text`, `rationale` string attributes on requirements
-- `passFailLogic`, `conditions`, `criteriaObjective` on VerificationCriteria
+- `passFailLogic`, `conditions`, `criteriaObjective` on `VerificationCriteria`
 
 ---
 

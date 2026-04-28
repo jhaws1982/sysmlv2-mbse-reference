@@ -2,7 +2,8 @@
 
 A reference SysML v2 model demonstrating multi-file architecture with the
 Leaf + Hub namespace pattern, DI-IPSC-81433A compliant requirements using
-`SRS_Definitions`, and Python Automator tooling.
+`SRS_Definitions`, and a Python Automator toolchain aligned to the OOSEM
+artifact suite.
 
 ---
 
@@ -49,15 +50,29 @@ sysmlv2-mbse-reference/
 │   └── _namespace.sysml                     hub:  Stakeholders::Roles, Stakeholders::Concerns
 │
 ├── 02_Core/
-│   ├── _namespace.sysml                     hub:  Core::Architecture, Core::Requirements
-│   ├── Architecture/
+│   ├── _namespace.sysml                     hub:  Core::*
+│   ├── Context/
+│   │   ├── system_context.sysml             leaf: SystemContext
+│   │   └── operational_concept.sysml        leaf: OperationalConcept
+│   ├── UseCases/
+│   │   ├── use_case_defs.sysml              leaf: UseCaseDefs
+│   │   └── use_case_model.sysml             leaf: UseCaseModel
+│   ├── Logical/
 │   │   ├── FeatureA.sysml                   leaf: FeatureA
 │   │   ├── FeatureB.sysml                   leaf: FeatureB
 │   │   ├── FeatureC.sysml                   leaf: FeatureC
-│   │   └── Core_System.sysml               leaf: CoreSystem
-│   └── Requirements/
-│       ├── Requirements_Def.sysml           leaf: RequirementsDef  (SRS types)
-│       └── Requirements_Decl.sysml          leaf: RequirementsDecl (bound to architecture)
+│   │   ├── Core_System.sysml                leaf: CoreSystem
+│   │   ├── logical_arch_defs.sysml          leaf: LogicalArchDefs
+│   │   ├── logical_arch_model.sysml         leaf: LogicalArchModel
+│   │   ├── interfaces.sysml                 leaf: LogicalInterfaces
+│   │   └── Behavior/
+│   │       ├── state_machines.sysml         leaf: StateMachines
+│   │       └── action_sequences.sysml       leaf: ActionSequences
+│   ├── Requirements/
+│   │   ├── Requirements_Def.sysml           leaf: RequirementsDef
+│   │   └── Requirements_Decl.sysml          leaf: RequirementsDecl
+│   └── Allocations/
+│       └── req_allocations.sysml            leaf: RequirementAllocations
 │
 ├── 03_ProductLine/
 │   └── Configurations.sysml                 leaf: ProductLineConfigurations
@@ -67,39 +82,53 @@ sysmlv2-mbse-reference/
 │   ├── Program_A/
 │   │   ├── Config.sysml                     leaf: ProgramA
 │   │   ├── Stakeholders/
-│   │   │   ├── Stakeholders.sysml           leaf: ProgramA_StakeholderDefs
-│   │   │   └── Concerns.sysml               leaf: ProgramA_StakeholderConcerns
-│   │   ├── Deployment/Deployment.sysml      leaf: ProgramA_Deployment
-│   │   ├── Requirements/Requirements.sysml  leaf: ProgramA_Requirements (SRS types)
-│   │   └── Verification/Verification.sysml  leaf: ProgramA_Verification
-│   └── Program_B/
-│       ├── Config.sysml                     leaf: ProgramB
-│       ├── Stakeholders/
-│       │   ├── Stakeholders.sysml           leaf: ProgramB_StakeholderDefs
-│       │   └── Concerns.sysml               leaf: ProgramB_StakeholderConcerns
-│       ├── Deployment/Deployment.sysml      leaf: ProgramB_Deployment
-│       ├── Requirements/Requirements.sysml  leaf: ProgramB_Requirements (SRS types)
-│       └── Verification/Verification.sysml  leaf: ProgramB_Verification
+│   │   ├── Architecture/
+│   │   ├── Requirements/Requirements.sysml  leaf: ProgramA_Requirements
+│   │   └── Verification/
+│   └── Program_B/  (same structure)
 │
 ├── 05_Verification/
-│   ├── _namespace.sysml                     hub:  Verification::TestCases, Verification::Traceability
 │   ├── TestCases.sysml                      leaf: TestCases
-│   └── Traceability.sysml                   leaf: Traceability
+│   ├── Traceability.sysml                   leaf: Traceability
+│   └── _namespace.sysml
 │
 └── __Tools/
-    ├── concerns_matrix.py                   Concern → Requirement traceability matrix
-    ├── coverage_matrix.py                   Requirement → Verification coverage matrix
-    ├── dependency_map.py                    Software artifact dependency map
-    ├── req_debug.py                         SysIDE API diagnostic tool
-    ├── req_report.py                        Requirements list + hierarchy diagrams
-    ├── req_validate.py                      SRS_Definitions constraint validator  ← NEW
-    ├── result_matrix.py                     CTest result matrix
-    ├── satisfaction_matrix.py               Requirement satisfaction matrix
-    ├── test_req_validate.py                 Unit tests for req_validate.py        ← NEW
-    └── sample_data/
-        ├── ctest_core.xml
-        ├── ctest_Program_A.xml
-        └── ctest_Program_B.xml
+    ├── generate_artifacts.py                ← Orchestrator — runs suites from artifacts.yaml
+    ├── artifacts.yaml                       ← Suite definitions + per-script config
+    ├── _tool_utils.py                       ← Shared utilities for all scripts
+    ├── report_builder.py                    ← PDF/HTML rendering infrastructure
+    ├── requirements.txt                     ← Python dependencies
+    │
+    ├── OOSEM/                               ← Official OOSEM artifact scripts
+    │   ├── SN01_stakeholder_register.py     SN-01 Stakeholder Register
+    │   ├── SN03_use_case_catalog.py         SN-03 Use Case Catalog
+    │   ├── SN04_opscon_report.py            SN-04 Operational Concept Description
+    │   ├── SN05_stakeholder_req_spec.py     SN-05 Stakeholder Requirements Spec
+    │   ├── SN06_stakeholder_traceability.py SN-06 Stakeholder → Use Case Traceability
+    │   ├── SR01_sys_req_spec.py             SR-01 System Requirements Specification
+    │   ├── SR02_req_hierarchy.py            SR-02 Requirements Hierarchy / Decomposition
+    │   ├── SR03_req_traceability.py         SR-03 Stakeholder → System Req Traceability
+    │   ├── SR04_req_traceability_matrix.py  SR-04 Requirements Derivation Matrix
+    │   ├── SR05_req_completeness.py         SR-05 Requirements Completeness Gap Report
+    │   ├── SR06_req_quality.py              SR-06 Requirements Quality Report
+    │   ├── LA01_logical_arch_report.py      LA-01 Logical Architecture Description
+    │   ├── LA02_logical_decomposition.py    LA-02 Logical Block Decomposition
+    │   ├── LA03_interface_catalog.py        LA-03 Interface Catalog
+    │   ├── LA04_behavioral_summary.py       LA-04 Behavioral Summary
+    │   ├── LA05_req_allocation.py           LA-05 Requirements Allocation Matrix
+    │   ├── LA06_logical_completeness.py     LA-06 Logical Architecture Completeness
+    │   └── RM01_risk_report.py              RM-01 Risk Register
+    │
+    └── generic/                             ← Utility scripts (no direct OOSEM artifact ID)
+        ├── generic_concern_report.py        Stakeholder concern narrative report
+        ├── generic_concerns_matrix.py       Concern → requirement coverage matrix
+        ├── generic_coverage_matrix.py       Requirement → verification coverage matrix
+        ├── generic_dependency_map.py        Executable dependency relationship mapping
+        ├── generic_req_debug.py             Requirement element inspection / API debugging
+        ├── generic_req_report.py            Requirements table with satisfy/derive columns
+        ├── generic_req_validate.py          Full SRS requirement validation
+        ├── generic_result_matrix.py         V&V result status joined from CTest JUnit XML
+        ├── generic_satisfaction_matrix.py   Requirement → architecture satisfaction matrix
 ```
 
 ---
@@ -129,63 +158,105 @@ private import SRS_Definitions::*;
 private import Shared::SRS::*;
 ```
 
-Each requirement follows the Def/Decl split:
+Each requirement follows the Def/Decl split and the doc-block convention:
 
 ```sysml
 // DEF — stable type, framing a concern
 requirement def <'REQ-CAP-001-DEF'> MyCapability_Def :> CapabilityRequirement {
-    doc /* ... */
+    doc /* Capability requirement description. */
     frame concern MyConcern;
 }
 
 // DECL — usage with all SRS fields populated
 requirement <'REQ-CAP-001'> myCapability : MyCapability_Def {
+    doc
+    /* The CSCI shall <verb> <object> under <conditions>. */
+    doc Rationale
+    /* Why this requirement exists and what risk it mitigates. */
     subject sys : MySystem;
-    attribute :>> id             = "REQ-CAP-001";
-    attribute :>> text           = "The system shall ...";
-    attribute :>> rationale      = "...";
-    attribute :>> source         = "...";
-    attribute :>> priority       = "High";
-    attribute :>> criticality    = "Critical";
-    attribute :>> capabilityName = "...";
-    attribute :>> latency        = "...";
+    attribute :>> source      = "SYS-PERF-003";
+    attribute :>> priority    = CMNDEF::LevelKind::High;
+    attribute :>> criticality = CMNDEF::LevelKind::High;
     part :>> criteria : VerificationCriteria {
-        attribute :>> verificationMethod = VerificationMethodKind::Test;
-        attribute :>> passFailLogic      = "PASS if ...";
-        attribute :>> threshold          = "...";
-        attribute :>> conditions         = "...";
+        doc
+        /* Test setup and PASS/FAIL condition in narrative prose. */
+        attribute :>> verificationMethod = VerificationMethodKind::test;
+        attribute :>> threshold          = "compact measurable bound";
     }
 }
 ```
+
+**Mandatory on every requirement usage:**
+1. `<'REQ-ID'>` short-name identifier
+2. Unnamed `doc` block — normative "shall" statement
+3. `doc Rationale` block — justification
+
+**Not in `SRS_Definitions.sysml`** (removed):
+- `id`, `text`, `rationale` string attributes on requirements
+- `passFailLogic`, `conditions`, `criteriaObjective` on `VerificationCriteria`
 
 ---
 
 ## Tooling
 
-All tools run from the model root directory:
+All tools run from the model root directory. OOSEM artifact scripts live in
+`__Tools/OOSEM/`; utility scripts live in `__Tools/generic/`.
 
 ```bash
-# Validate SRS requirements (default: show all levels)
-python __Tools/req_validate.py .
+# Run the full artifact suite
+python __Tools/generate_artifacts.py --suite all
 
-# Validate with CI gate (fail if any INVALID)
-python __Tools/req_validate.py . --fail-on-invalid
+# Run a specific suite
+python __Tools/generate_artifacts.py --suite requirements
+python __Tools/generate_artifacts.py --suite stakeholder
+python __Tools/generate_artifacts.py --suite risk
 
-# Validate specific package only
-python __Tools/req_validate.py . --package ProgramA_Requirements
+# Run a single script
+python __Tools/generate_artifacts.py --script OOSEM/SR04_req_traceability_matrix
 
-# Use a different SRS definitions package name
-python __Tools/req_validate.py . --srs-package MyProject_SRS
+# List all available suites and scripts
+python __Tools/generate_artifacts.py --list
 
-# Run unit tests
-pytest __Tools/test_req_validate.py -v
+# Dry run (check script existence without executing)
+python __Tools/generate_artifacts.py --suite all --dry-run
 
-# Requirements report
-python __Tools/req_report.py . --format md
+# ── Individual OOSEM scripts ──────────────────────────────────────────────────
+
+# SR-01 System Requirements Specification
+python __Tools/OOSEM/SR01_sys_req_spec.py .
+
+# SR-02 Requirements Hierarchy (ID-only diagrams by default)
+python __Tools/OOSEM/SR02_req_hierarchy.py .
+python __Tools/OOSEM/SR02_req_hierarchy.py . --show-doc   # include req text in diagrams
+
+# SR-04 Requirements Derivation Traceability Matrix
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --format xlsx
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --start-level 0 --depth 2
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --program Program_A --depth 1
+
+# RM-01 Risk Register
+python __Tools/OOSEM/RM01_risk_report.py .
+
+# ── Generic utility scripts ───────────────────────────────────────────────────
+
+# Validate SRS requirements
+python __Tools/generic/generic_req_validate.py .
+python __Tools/generic/generic_req_validate.py . --fail-on-invalid
+python __Tools/generic/generic_req_validate.py . --package ProgramA_Requirements
+
+# Requirements table with satisfy/derive relationship columns
+python __Tools/generic/generic_req_report.py . --format md
+
+# V&V result matrix (joined from CTest JUnit XML)
+python __Tools/generic/generic_result_matrix.py .
 
 # Other matrices
-python __Tools/concerns_matrix.py .
-python __Tools/satisfaction_matrix.py .
-python __Tools/coverage_matrix.py .
-python __Tools/dependency_map.py .
+python __Tools/generic/generic_concerns_matrix.py .
+python __Tools/generic/generic_satisfaction_matrix.py .
+python __Tools/generic/generic_coverage_matrix.py .
+python __Tools/generic/generic_dependency_map.py .
+
 ```
+
+See `OOSEM_ARTIFACTS.md` for the complete artifact inventory, required model
+elements, and output format for each script.

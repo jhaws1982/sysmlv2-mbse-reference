@@ -29,6 +29,7 @@ __Tools/
 │   ├── SR01_sys_req_spec.py
 │   ├── SR02_req_hierarchy.py
 │   ├── SR03_req_traceability.py
+│   ├── SR04_req_traceability_matrix.py
 │   ├── SR05_req_completeness.py
 │   ├── SR06_req_quality.py
 │   ├── LA01_logical_arch_report.py
@@ -49,7 +50,6 @@ __Tools/
     ├── generic_req_validate.py
     ├── generic_result_matrix.py
     ├── generic_satisfaction_matrix.py
-    └── generic_test_req_validate.py
 ```
 
 ---
@@ -73,8 +73,44 @@ __Tools/
 | SR-01 | System Requirements Specification | `OOSEM/SR01_sys_req_spec.py` | Markdown + PDF | All requirement usages with `doc` + `doc Rationale` |
 | SR-02 | Requirements Hierarchy / Decomposition | `OOSEM/SR02_req_hierarchy.py` | Markdown + Graphviz PNG | Nested `requirement` usages (subrequirements) |
 | SR-03 | Stakeholder→System Req Traceability Matrix | `OOSEM/SR03_req_traceability.py` | Markdown | `#derivation connection` or nested subrequirements |
+| SR-04 | Requirements Derivation Traceability Matrix | `OOSEM/SR04_req_traceability_matrix.py` | Markdown + Excel | Nested requirement usages and/or `DeriveRequirementUsage` |
 | SR-05 | Requirements Completeness Gap Report | `OOSEM/SR05_req_completeness.py` | Markdown | Any `requirement` usages |
 | SR-06 | Requirements Quality Report | `OOSEM/SR06_req_quality.py` | Markdown | `requirement` usages with `doc` text |
+
+### SR-04 — Requirements Derivation Traceability Matrix
+
+Produces a cross-reference matrix showing which requirements are derived from
+which parent requirements. Both rows and columns are ordered by pre-order tree
+traversal so derived requirements appear immediately after their parent in both
+axes. A requirement may appear in both rows and columns simultaneously (e.g.
+with `--depth 2`, L1 requirements are row sources for L2 derivations and
+column targets derived from L0).
+
+**Options** (CLI or `artifacts.yaml` `script_config`):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--start-level` | `0` | Floor level — requirements above this are excluded |
+| `--depth` | `1` | Levels to traverse. Rows = L{start}..L{start+depth-1}, cols = L{start+1}..L{start+depth} |
+| `--program` | _(none)_ | Restrict to one program's requirements package (e.g. `Program_A` → `ProgramA_Requirements`). Without this flag all `*_Requirements` program packages are excluded |
+| `--format` | `md` | `md`, `xlsx`, or `both` |
+
+**Cell colouring (Excel):**
+- ✓ light blue — derivation relationship exists
+- Yellow row — source requirement has no derived reqs in the column window (coverage gap)
+- Red column — derived requirement has no source in the row window (orphaned)
+
+**Examples:**
+```bash
+# Core requirements, roots as rows, direct children as columns
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --format xlsx
+
+# Two levels deep — L0+L1 as rows, L1+L2 as columns
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --depth 2 --format both
+
+# Program A requirements only
+python __Tools/OOSEM/SR04_req_traceability_matrix.py . --program Program_A --format xlsx
+```
 
 ---
 
@@ -107,7 +143,7 @@ model analysis, validation, and debugging across all phases.
 | Script | Purpose | Notes |
 |--------|---------|-------|
 | `generic/generic_req_report.py` | Requirements table with `satisfy` and `#derive` relationship columns | Complements SR-02; shows cross-package traceability links alongside requirement text |
-| `generic/generic_req_validate.py` | Full SRS requirement validation (ID, text, rationale checks) | Invoked by SR-05 (`req_completeness.py`) |
+| `generic/generic_req_validate.py` | Full SRS requirement validation (ID, text, rationale checks) | Invoked by SR-05 (`SR05_req_completeness.py`) |
 | `generic/generic_result_matrix.py` | V&V result status joined from CTest JUnit XML | Phase 4–5 use |
 | `generic/generic_concerns_matrix.py` | Concern → requirement coverage matrix | Feeds SN-06 |
 | `generic/generic_satisfaction_matrix.py` | Requirement → architecture satisfaction matrix | Feeds LA-05 |
@@ -115,7 +151,6 @@ model analysis, validation, and debugging across all phases.
 | `generic/generic_dependency_map.py` | Executable `dependency` relationship mapping | Dev/build toolchain analysis |
 | `generic/generic_concern_report.py` | Stakeholder concern narrative report | Detailed concern-level output |
 | `generic/generic_req_debug.py` | Requirement element inspection / API debugging | Developer use |
-| `generic/generic_test_req_validate.py` | Unit tests for `generic_req_validate.py` | Developer use |
 
 ---
 
@@ -126,7 +161,7 @@ Run `python __Tools/generate_artifacts.py --suite <name>`:
 | Suite | Contents |
 |-------|----------|
 | `stakeholder` | SN-01, SN-03, SN-04, SN-05, SN-06 |
-| `requirements` | SR-01, SR-02, SR-03, SR-05, SR-06 |
+| `requirements` | SR-01, SR-02, SR-03, SR-04, SR-05, SR-06 |
 | `logical` | LA-01 through LA-06 |
 | `risk` | RM-01 |
 | `diagnostics` | SR-05, SR-06, LA-06 (gap reports only) |
@@ -151,7 +186,7 @@ requirement <'REQ-CAP-001'> myRequirement : CapabilityRequirement {
     part :>> criteria : VerificationCriteria {
         doc
         /* Test setup and PASS/FAIL condition in narrative form. */
-        attribute :>> verificationMethod = VerificationMethodKind::Test;
+        attribute :>> verificationMethod = VerificationMethodKind::test;
         attribute :>> threshold          = "compact measurable bound";
     }
 }
@@ -178,8 +213,8 @@ requirement <'REQ-CAP-001'> myRequirement : CapabilityRequirement {
 | `01_Stakeholders/Concerns.sysml` | SN-01, SN-05, SN-06 |
 | `02_Core/UseCases/use_case_defs.sysml` | SN-03 |
 | `02_Core/UseCases/use_case_model.sysml` | SN-03, SN-06 |
-| `02_Core/Requirements/Requirements_Decl.sysml` | SR-01, SR-02, SR-05, SR-06 |
-| `04_Programs/*/Requirements/Requirements.sysml` | SR-01, SR-02, SR-05, SR-06 |
+| `02_Core/Requirements/Requirements_Decl.sysml` | SR-01, SR-02, SR-03, SR-04, SR-05, SR-06 |
+| `04_Programs/*/Requirements/Requirements.sysml` | SR-04 (with `--program`), SR-01, SR-05, SR-06 |
 | `02_Core/Logical/logical_arch_defs.sysml` | LA-01, LA-02, LA-04 |
 | `02_Core/Logical/logical_arch_model.sysml` | LA-01, LA-02 |
 | `02_Core/Logical/interfaces.sysml` | LA-03 |

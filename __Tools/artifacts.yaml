@@ -54,6 +54,7 @@ suites:
       - OOSEM/SR01_sys_req_spec
       - OOSEM/SR02_req_hierarchy
       - OOSEM/SR03_req_traceability
+      - OOSEM/SR04_req_traceability_matrix
       - OOSEM/SR05_req_completeness
       - OOSEM/SR06_req_quality
 
@@ -98,6 +99,7 @@ suites:
       - OOSEM/SR01_sys_req_spec
       - OOSEM/SR02_req_hierarchy
       - OOSEM/SR03_req_traceability
+      - OOSEM/SR04_req_traceability_matrix
       - OOSEM/SR05_req_completeness
       - OOSEM/SR06_req_quality
       - OOSEM/LA01_logical_arch_report
@@ -118,6 +120,9 @@ script_config:
   OOSEM/SN05_stakeholder_req_spec:
     include_concern_mapping: true
     include_use_case_refs: true
+
+  OOSEM/SR04_req_traceability_matrix:
+    format: "both"   # md + xlsx
 
   OOSEM/SR06_req_quality:
     ambiguous_terms:
