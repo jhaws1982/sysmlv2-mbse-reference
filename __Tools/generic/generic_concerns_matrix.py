@@ -1,37 +1,49 @@
 """
-concerns_matrix.py
+generic_concerns_matrix.py
 
-Generates a Concern → Requirement traceability matrix from a SysML v2 model.
+Generates a Concern → Requirement traceability matrix as an Excel workbook.
+
+Layout:
+  Rows    = stakeholder concern definitions
+  Columns = requirement usages that frame concerns (short ID, or name)
+  Cell    = ✓ where the requirement frames the concern
+
+Column headers are rotated 90° (vertical text) with narrow fixed width,
+matching the SR-04 matrix style.
+
+Program filtering:
+  By default all program requirements and concerns (04_Programs/) are excluded.
+  --program Program_A  restricts to ONLY that program's concerns and requirements.
 
 Usage:
-    # Core model only (default)
-    python __Tools/concerns_matrix.py .
-
-    # Core + Program A
-    python __Tools/concerns_matrix.py . --program Program_A
-
-    # Core + Program B
-    python __Tools/concerns_matrix.py . --program Program_B
-
-Output:
-    - ASCII matrix printed to stdout
-    - If --program is given, a second program-specific matrix is shown after core
-    - CSV written to __Tools/concern_req_matrix[_<program>].csv
-
-Each program can have its own stakeholders, concerns, and requirement defs
-that are entirely separate from (and in addition to) the core model elements.
+    python __Tools/generic/generic_concerns_matrix.py .
+    python __Tools/generic/generic_concerns_matrix.py . --program Program_A
+    python __Tools/generic/generic_concerns_matrix.py . --output ./reports
 """
 
+import re
 import sys
-import csv
 import argparse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from _tool_utils import iter_user_elements, collect_user_sysml_files
+sys.path.insert(0, str(Path(__file__).parent.parent))   # __Tools/
+sys.path.insert(0, str(Path(__file__).parent))           # __Tools/generic/
+
+from _tool_utils import iter_user_elements, collect_user_sysml_files, is_plain_req, _EXCLUDED_DIRS, get_unnamed_doc
 import syside
 from syside.preview import open_model
 
+
+# ── Palette (matches SR-04 / SR-02 style) ────────────────────────────────────
+
+NAVY   = "1F4E79"
+LTBLUE = "DDEEFF"
+RED    = "FFCCCC"
+YELLOW = "FFFACD"
+CHECK  = "✓"
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def get_name(element) -> str:
     name = element.declared_name
@@ -41,8 +53,26 @@ def get_name(element) -> str:
     return str(qn) if qn else "<unnamed>"
 
 
-def collect_typed(root, std_type: type, results: list):
-    """Depth-first collection of all elements matching std_type."""
+def get_short_label(element) -> str:
+    """Short-name ID if present, else declared name."""
+    try:
+        sn = element.short_name
+        if sn:
+            return str(sn).strip("'\"")
+    except Exception:
+        pass
+    return get_name(element)
+
+
+def qualified_name(element) -> str:
+    try:
+        qn = element.qualified_name
+        return str(qn) if qn else ""
+    except Exception:
+        return ""
+
+
+def collect_typed(root, std_type, results: list):
     if root.isinstance(std_type):
         results.append(root.cast(std_type))
     if root.isinstance(syside.Namespace.STD):
@@ -51,190 +81,306 @@ def collect_typed(root, std_type: type, results: list):
             collect_typed(member, std_type, results)
 
 
-def framed_concern_names(req_def) -> set[str]:
+def framed_concern_labels(req) -> set[str]:
     """
-    Return the set of concern names framed by this requirement def.
-    In SysIDE 0.8.x, `frame concern X` is stored as a ConcernUsage
-    with declared_name = 'X'.
+    Return the set of concern labels framed by this requirement usage.
+
+    'frame concern X' is declared on the requirement *definition*, not the
+    usage, so we walk from the usage to its definition (via .definition or
+    .type) and collect ConcernUsage members from there.  We also check the
+    usage's own members as a fallback for inline 'frame concern' statements.
     """
-    names: set[str] = set()
-    for member in req_def.owned_members.collect():
-        if member.isinstance(syside.ConcernUsage.STD):
-            n = member.cast(syside.ConcernUsage.STD).declared_name
-            if n:
-                names.add(n)
-    return names
+    labels: set[str] = set()
+
+    def _collect_from(element):
+        try:
+            for member in element.owned_members.collect():
+                if member.isinstance(syside.ConcernUsage.STD):
+                    cu = member.cast(syside.ConcernUsage.STD)
+                    n = cu.declared_name
+                    if n:
+                        labels.add(n)
+        except Exception:
+            pass
+
+    # Check the usage itself (inline frame concern)
+    _collect_from(req)
+
+    # Walk to the requirement definition
+    for attr in ("definition", "type"):
+        try:
+            defn = getattr(req, attr)
+            if defn is None:
+                continue
+            # .type may return a collection — handle both
+            try:
+                for t in defn.collect():
+                    _collect_from(t)
+            except AttributeError:
+                _collect_from(defn)
+            break
+        except Exception:
+            continue
+
+    return labels
 
 
-def print_matrix(label: str,
-                 concern_names: list[str],
-                 req_names: list[str],
-                 req_frames: dict[str, set[str]]) -> list[str]:
-    """Print one ASCII matrix section. Returns the list of gap concern names."""
-    if not concern_names or not req_names:
-        print(f"\n[{label}] Nothing to show — no concerns or requirements found.\n")
-        return []
+# ── Program filtering ─────────────────────────────────────────────────────────
 
-    row_w = max(len(n) for n in concern_names + ["Concern"])
-    col_w = max(len(n) for n in req_names)
-
-    print(f"\n{'═' * 4} {label} {'═' * max(0, 60 - len(label))}")
-    header = f"{'Concern':<{row_w}} | " + " | ".join(f"{r:<{col_w}}" for r in req_names)
-    print(header)
-    print("-" * len(header))
-
-    gaps = []
-    for concern in concern_names:
-        cells = " | ".join(
-            f"{'X':^{col_w}}" if concern in req_frames.get(r, set()) else f"{' ':^{col_w}}"
-            for r in req_names
-        )
-        covered = any(concern in req_frames.get(r, set()) for r in req_names)
-        gap_marker = "  ← GAP" if not covered else ""
-        if not covered:
-            gaps.append(concern)
-        print(f"{concern:<{row_w}} | {cells}{gap_marker}")
-
-    print()
-    if gaps:
-        print(f"⚠  {len(gaps)} concern(s) with no requirement:")
-        for g in gaps:
-            print(f"   - {g}")
-    else:
-        print(f"✓  All {len(concern_names)} concern(s) have at least one requirement.")
-
-    return gaps
+def natural_sort_key(s: str) -> list:
+    """
+    Sort key that orders embedded integers numerically.
+    'BL.2' < 'BL.10',  'REQ-1' < 'REQ-10',  'A' < 'B'.
+    """
+    return [int(part) if part.isdigit() else part.lower()
+            for part in re.split(r'(\d+)', s)]
+    """
+    Derive the SysML package name prefix for a program directory name.
+    Program_A → ProgramA  (used only for display; filtering is by directory path)
+    """
+    return program.replace("_", "")
 
 
-def write_csv(csv_path: Path,
-              concern_names: list[str],
-              req_names: list[str],
-              req_frames: dict[str, set[str]]):
-    csv_path.parent.mkdir(exist_ok=True)
-    with csv_path.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Concern"] + req_names + ["COVERED?"])
-        for concern in concern_names:
-            covered = any(concern in req_frames.get(r, set()) for r in req_names)
-            row = [concern] + ["X" if concern in req_frames.get(r, set()) else ""
-                               for r in req_names]
-            row.append("YES" if covered else "NO — GAP")
-            writer.writerow(row)
+# ── Collection ────────────────────────────────────────────────────────────────
 
+def collect_elements(
+    model,
+    model_dir: Path,
+    program: str | None,
+) -> tuple[list, list]:
+    """
+    Collect (concern_defs, req_usages) scoped by directory.
 
-def collect_for_dir(model, target_dir: Path) -> tuple[list, list]:
-    """Collect concerns and req defs from a specific directory."""
-    concerns: list = []
-    req_defs: list = []
-    for top in model.top_elements_from(target_dir):
-        collect_typed(top, syside.ConcernDefinition.STD,     concerns)
-        collect_typed(top, syside.RequirementDefinition.STD, req_defs)
-    req_defs = [r for r in req_defs
-                if not r.isinstance(syside.ConcernDefinition.STD)]
-    return concerns, req_defs
+    Concerns are ConcernDefinition; requirements are RequirementUsage
+    filtered by is_plain_req().
 
+    If program is set:  collect ONLY from 04_Programs/<program>/ subtree
+                        using model.top_elements_from() scoped to that dir.
+    If program is None: iterate model_dir exactly as iter_user_elements does,
+                        but skip the 04_Programs/ directory entirely so no
+                        program elements are ever visited.
+    """
+    programs_dir = model_dir / "04_Programs"
+    all_concerns: list = []
+    all_req_usages: list = []
 
-def build_matrix(model_dir: Path, program: str | None, output_dir: Path):
-
-    print(f"Loading model from: {model_dir}")
     if program:
-        print(f"Program filter:     {program}\n")
-    else:
-        print()
-
-    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
-
-        diags = model.diagnostics
-        if diags.contains_errors():
-            print("WARNING: Model loaded with errors. Results may be incomplete.")
-            for msg in diags.errors:
-                print(f"  ERROR:   {msg}")
-
-        # ── Core collection ───────────────────────────────────────────────
-        # Exclude program directories from the core pass
-        programs_dir = model_dir / "04_Programs"
-        core_concerns: list = []
-        core_req_defs: list = []
-
-        for top in iter_user_elements(model, model_dir):
-            # Skip elements that belong to any program subdirectory
-            skip = False
-            if programs_dir.exists():
-                for prog_dir in programs_dir.iterdir():
-                    if prog_dir.is_dir():
-                        try:
-                            elems = list(model.top_elements_from(prog_dir))
-                            if top in elems:
-                                skip = True
-                                break
-                        except Exception:
-                            pass
-            if not skip:
-                collect_typed(top, syside.ConcernDefinition.STD,     core_concerns)
-                collect_typed(top, syside.RequirementDefinition.STD, core_req_defs)
-
-        core_req_defs = [r for r in core_req_defs
-                         if not r.isinstance(syside.ConcernDefinition.STD)]
-
-        core_concern_names = sorted(get_name(c) for c in core_concerns)
-        core_req_names     = sorted(get_name(r) for r in core_req_defs)
-        core_req_frames    = {get_name(r): framed_concern_names(r) for r in core_req_defs}
-
-        core_gaps = print_matrix(
-            "CORE — Concern → Requirement",
-            core_concern_names,
-            core_req_names,
-            core_req_frames,
-        )
-
-        # Write core CSV
-        csv_path = output_dir / "concern_req_matrix.csv"
-        write_csv(csv_path, core_concern_names, core_req_names, core_req_frames)
-        print(f"\nCSV written to: {csv_path}")
-
-        # ── Program collection ────────────────────────────────────────────
-        if not program:
-            return
-
         prog_dir = programs_dir / program
         if not prog_dir.is_dir():
-            print(f"\nERROR: Program directory not found: {prog_dir}", file=sys.stderr)
-            print(f"Available programs: {[d.name for d in programs_dir.iterdir() if d.is_dir()]}")
-            return
+            available = ([d.name for d in programs_dir.iterdir() if d.is_dir()]
+                         if programs_dir.is_dir() else [])
+            print(f"ERROR: Program directory not found: {prog_dir}", file=sys.stderr)
+            print(f"Available programs: {available}", file=sys.stderr)
+            return [], []
+        try:
+            for top in model.top_elements_from(str(prog_dir)):
+                collect_typed(top, syside.ConcernDefinition.STD, all_concerns)
+                collect_typed(top, syside.RequirementUsage.STD,  all_req_usages)
+        except Exception as e:
+            print(f"WARNING: Could not scope to {prog_dir}: {e}", file=sys.stderr)
+    else:
+        # Mirror iter_user_elements but skip 04_Programs/ entirely
+        for item in sorted(model_dir.iterdir()):
+            if item.name.startswith('.'):
+                continue
+            # Skip the programs directory — we never want program elements here
+            if item.resolve() == programs_dir.resolve():
+                continue
+            if item.name in _EXCLUDED_DIRS:
+                continue
+            if item.is_dir() or (item.is_file() and item.suffix == '.sysml'):
+                try:
+                    for top in model.top_elements_from(str(item)):
+                        collect_typed(top, syside.ConcernDefinition.STD, all_concerns)
+                        collect_typed(top, syside.RequirementUsage.STD,  all_req_usages)
+                except Exception:
+                    pass
 
-        prog_concerns, prog_req_defs = collect_for_dir(model, prog_dir)
+    plain_req_usages = [r for r in all_req_usages if is_plain_req(r)]
+    # Exclude base/organizational concern defs that have no doc block —
+    # real stakeholder concerns always document what the concern is.
+    documented_concerns = [c for c in all_concerns if get_unnamed_doc(c)]
+    return documented_concerns, plain_req_usages
 
-        prog_concern_names = sorted(get_name(c) for c in prog_concerns)
-        prog_req_names     = sorted(get_name(r) for r in prog_req_defs)
-        prog_req_frames    = {get_name(r): framed_concern_names(r) for r in prog_req_defs}
 
-        print_matrix(
-            f"{program} — Concern → Requirement",
-            prog_concern_names,
-            prog_req_names,
-            prog_req_frames,
+# ── Excel output ──────────────────────────────────────────────────────────────
+
+def write_xlsx(
+    concern_labels: list[str],
+    req_labels: list[str],
+    frames: dict[str, set[str]],
+    output_path: Path,
+    title: str,
+) -> Path:
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.comments import Comment
+    except ImportError:
+        print("openpyxl not installed. Run: pip install openpyxl", file=sys.stderr)
+        sys.exit(1)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Concerns Matrix"
+
+    hdr_font   = Font(bold=True, color="FFFFFF", size=10)
+    hdr_fill   = PatternFill("solid", fgColor=NAVY)
+    chk_fill   = PatternFill("solid", fgColor=LTBLUE)
+    gap_fill   = PatternFill("solid", fgColor=YELLOW)
+    red_fill   = PatternFill("solid", fgColor=RED)
+    ctr_align  = Alignment(horizontal="center", vertical="center")
+    lft_align  = Alignment(horizontal="left",   vertical="center")
+    vert_align = Alignment(horizontal="center", vertical="bottom",
+                           text_rotation=90, wrap_text=False)
+    thin   = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # Pre-compute gap sets
+    concerns_no_req = {c for c in concern_labels
+                       if not any(c in frames.get(r, set()) for r in req_labels)}
+    reqs_no_concern = {r for r in req_labels
+                       if not any(c in frames.get(r, set()) for c in concern_labels)}
+
+    # Corner cell
+    corner = ws.cell(row=1, column=1, value="Concern \\ Requirement")
+    corner.font      = hdr_font
+    corner.fill      = hdr_fill
+    corner.alignment = lft_align
+    corner.border    = border
+    ws.column_dimensions["A"].width = 30
+
+    # Column headers — requirement short IDs, rotated 90°
+    for ci, req_lbl in enumerate(req_labels, start=2):
+        cell = ws.cell(row=1, column=ci, value=req_lbl)
+        cell.font      = hdr_font
+        cell.fill      = hdr_fill
+        cell.alignment = vert_align
+        cell.border    = border
+        ws.column_dimensions[cell.column_letter].width = 4
+    ws.row_dimensions[1].height = (
+        max(len(r) * 5.5 for r in req_labels) if req_labels else 80
+    )
+
+    # Matrix body
+    for ri, concern in enumerate(concern_labels, start=2):
+        row_gap = concern in concerns_no_req
+
+        row_hdr = ws.cell(row=ri, column=1, value=concern)
+        row_hdr.font      = Font(bold=True, size=10)
+        row_hdr.alignment = lft_align
+        row_hdr.border    = border
+        row_hdr.fill      = red_fill if row_gap else PatternFill()
+
+        for ci, req_lbl in enumerate(req_labels, start=2):
+            col_gap = req_lbl in reqs_no_concern
+            cell   = ws.cell(row=ri, column=ci)
+            cell.border    = border
+            cell.alignment = ctr_align
+            if concern in frames.get(req_lbl, set()):
+                cell.value = CHECK
+                cell.fill  = chk_fill
+                cell.font  = Font(bold=True, color=NAVY, size=11)
+            elif row_gap:
+                cell.fill = red_fill
+            elif col_gap:
+                cell.fill = gap_fill
+
+    ws.freeze_panes = "B2"
+
+    # Legend sheet
+    ls = wb.create_sheet("Legend")
+    ls.column_dimensions["A"].width = 20
+    ls.column_dimensions["B"].width = 60
+
+    legend_data = [
+        ("Concerns Matrix", title),
+        ("Rows",            "Stakeholder concern definitions"),
+        ("Columns",         "Requirement usages that frame concerns (short ID or name)"),
+        ("",                ""),
+        ("✓",               "Requirement frames this concern"),
+        ("Red row",         "Concern has no requirement framing it — uncovered concern (critical gap)"),
+        ("Yellow column",   "Requirement frames no concerns — not tied to a stakeholder concern"),
+        ("",                ""),
+        ("Program filter",  "Core model only" if "Core" in title else title),
+    ]
+    swatch_fills = {
+        "✓":             PatternFill("solid", fgColor=LTBLUE),
+        "Red row":       PatternFill("solid", fgColor=RED),
+        "Yellow column": PatternFill("solid", fgColor=YELLOW),
+    }
+    for r, (k, v) in enumerate(legend_data, start=1):
+        key_cell = ls.cell(row=r, column=1, value=k)
+        key_cell.font = Font(bold=True)
+        if k in swatch_fills:
+            key_cell.fill = swatch_fills[k]
+        ls.cell(row=r, column=2, value=v)
+
+    wb.save(output_path)
+    return output_path
+
+
+# ── Markdown summary ──────────────────────────────────────────────────────────
+
+def write_markdown(
+    concern_labels: list[str],
+    req_labels: list[str],
+    frames: dict[str, set[str]],
+    output_path: Path,
+    title: str,
+):
+    concerns_no_req = [c for c in concern_labels
+                       if not any(c in frames.get(r, set()) for r in req_labels)]
+
+    lines = [
+        f"# {title}\n",
+        f"**Concerns:** {len(concern_labels)}  |  "
+        f"**Requirements:** {len(req_labels)}  |  "
+        f"**Coverage gaps:** {len(concerns_no_req)}\n",
+    ]
+
+    if concerns_no_req:
+        lines.append("## Coverage Gaps\n")
+        lines.append("Concerns with no framing requirement:\n")
+        for c in concerns_no_req:
+            lines.append(f"- {c}\n")
+        lines.append("")
+
+    lines.append("## Concern × Requirement Matrix\n")
+    header = "| Concern | " + " | ".join(req_labels) + " |"
+    sep    = "|:--------|" + "|".join([":---:"] * len(req_labels)) + "|"
+    lines.append(header + "\n")
+    lines.append(sep + "\n")
+    for concern in concern_labels:
+        cells = " | ".join(
+            CHECK if concern in frames.get(r, set()) else ""
+            for r in req_labels
         )
+        lines.append(f"| {concern} | {cells} |\n")
 
-        # Write program CSV
-        prog_csv = output_dir / f"concern_req_matrix_{program}.csv"
-        write_csv(prog_csv, prog_concern_names, prog_req_names, prog_req_frames)
-        print(f"\nCSV written to: {prog_csv}")
+    output_path.write_text("".join(lines), encoding="utf-8")
 
 
-if __name__ == "__main__":
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
     parser = argparse.ArgumentParser(
-        description="Generate Concern → Requirement traceability matrix."
+        description="Generate Concern → Requirement traceability matrix (Excel)."
     )
     parser.add_argument("model_dir", help="Path to model root directory")
     parser.add_argument(
-        "--program", "-p",
-        default=None,
-        help="Program subdirectory name (e.g. Program_A) to include after core"
+        "--program", "-p", default=None,
+        help="04_Programs/ subdirectory name (e.g. Program_A). "
+             "Restricts to that program's concerns and requirements only. "
+             "Without this flag, all program elements are excluded."
     )
     parser.add_argument(
-        "--output", "-o",
-        default=None,
-        help="Output directory (default: __output in current working directory)"
+        "--output", "-o", default=None,
+        help="Output directory (default: __output/ under cwd)"
+    )
+    parser.add_argument(
+        "--config-json", type=str, default=None,
+        help="JSON config string injected by generate_artifacts.py"
     )
     args = parser.parse_args()
 
@@ -246,4 +392,68 @@ if __name__ == "__main__":
     output_dir = Path(args.output).resolve() if args.output else Path.cwd() / "__output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    build_matrix(model_dir, args.program, output_dir)
+    # Merge script_config
+    script_config: dict = {}
+    if args.config_json:
+        import json as _json
+        try:
+            script_config = _json.loads(args.config_json)
+        except Exception:
+            pass
+    if args.program is None and "program" in script_config:
+        args.program = script_config["program"]
+
+    if args.program:
+        print(f"Program filter: {args.program}")
+        title = f"Concern → Requirement Matrix — {args.program}"
+        xlsx_name = f"concerns_matrix_{args.program}.xlsx"
+        md_name   = f"concerns_matrix_{args.program}.md"
+    else:
+        print("Program filter: none — all program elements excluded (core only).")
+        title = "Concern → Requirement Matrix — Core"
+        xlsx_name = "concerns_matrix.xlsx"
+        md_name   = "concerns_matrix.md"
+
+    print(f"Loading model from: {model_dir}")
+
+    with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
+        diags = model.diagnostics
+        if diags.contains_errors():
+            print("WARNING: Model loaded with errors. Results may be incomplete.")
+            for msg in diags.errors:
+                print(f"  ERROR:   {msg}")
+
+        concerns, req_usages = collect_elements(model, model_dir, args.program)
+
+        concern_labels = sorted((get_name(c) for c in concerns),    key=natural_sort_key)
+        req_labels     = sorted((get_short_label(r) for r in req_usages), key=natural_sort_key)
+        frames         = {get_short_label(r): framed_concern_labels(r) for r in req_usages}
+
+        print(f"Found {len(concern_labels)} concern(s), {len(req_usages)} requirement usage(s).")
+
+        concerns_no_req = [c for c in concern_labels
+                           if not any(c in frames.get(r, set()) for r in req_labels)]
+        if concerns_no_req:
+            print(f"  ⚠  {len(concerns_no_req)} concern(s) with no framing requirement:")
+            for c in concerns_no_req:
+                print(f"     - {c}")
+        else:
+            print(f"  ✓  All {len(concern_labels)} concern(s) have at least one framing requirement.")
+
+        if not concern_labels or not req_labels:
+            print("Nothing to write — no concerns or requirement definitions found.")
+            return
+
+        xlsx_path = write_xlsx(
+            concern_labels, req_labels, frames,
+            output_dir / xlsx_name, title,
+        )
+        print(f"  XLSX → {xlsx_path}")
+
+        md_path = output_dir / md_name
+        write_markdown(concern_labels, req_labels, frames, md_path, title)
+        print(f"  MD   → {md_path}")
+
+
+if __name__ == "__main__":
+    main()
