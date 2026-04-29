@@ -85,6 +85,17 @@ except ImportError:
     pass
 
 
+# ── Natural sort ──────────────────────────────────────────────────────────────
+
+def natural_sort_key(s: str) -> list:
+    """
+    Sort key that orders embedded integers numerically.
+    BL.2 < BL.10,  REQ-1 < REQ-10.
+    """
+    return [int(p) if p.isdigit() else p.lower()
+            for p in re.split(r'(\d+)', s)]
+
+
 # ── Program package helpers ───────────────────────────────────────────────────
 
 # Matches any *_Requirements package that lives under a Programs namespace.
@@ -252,10 +263,10 @@ def select_rows_and_cols(
             row_nodes.append(n)
         if col_min <= n.level <= col_max:
             col_nodes.append(n)
-        for child in sorted(n.children, key=lambda c: c.label):
+        for child in sorted(n.children, key=lambda c: natural_sort_key(c.label)):
             _collect(child)
 
-    for root in sorted(forest, key=lambda r: r.label):
+    for root in sorted(forest, key=lambda r: natural_sort_key(r.label)):
         _collect(root)
 
     return row_nodes, col_nodes
@@ -686,7 +697,7 @@ def main():
             lines.append(md_heading("Derivation Pairs", 2))
             lines.append(md_table(
                 [f"Source ({row_range})", f"Derived ({col_range})"],
-                [[s, d] for s, d in sorted(pairs)],
+                [[s, d] for s, d in sorted(pairs, key=lambda p: (natural_sort_key(p[0]), natural_sort_key(p[1])))],
             ))
 
         if rows_no_check:

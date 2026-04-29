@@ -25,6 +25,17 @@ from SR02_req_hierarchy import build_node, flatten, render_all, diagram_filename
 
 import syside
 
+
+# ── Natural sort ──────────────────────────────────────────────────────────────
+
+def natural_sort_key(s: str) -> list:
+    """
+    Sort key that orders embedded integers numerically.
+    BL.2 < BL.10,  REQ-1 < REQ-10.
+    """
+    return [int(p) if p.isdigit() else p.lower()
+            for p in re.split(r'(\d+)', s)]
+
 # DI-IPSC-81433A section mapping
 TYPE_SECTION = {
     "CapabilityRequirement":       "3.2 Capability Requirements",
@@ -293,13 +304,13 @@ def main():
             if not reqs:
                 continue
             builder.add(f"<h2>{_esc(section)}</h2>")
-            for req in sorted(reqs, key=lambda r: get_short_name(r)):
+            for req in sorted(reqs, key=lambda r: natural_sort_key(get_short_name(r) or r.declared_name or "")):
                 builder.add(format_req_html(req, 0, diagrams, args.output))
 
         # Appendix — requirements index
         builder.add("<h2>Appendix A — Requirements Index</h2>")
         index_rows = []
-        for req in sorted(root_reqs, key=lambda r: get_short_name(r)):
+        for req in sorted(root_reqs, key=lambda r: natural_sort_key(get_short_name(r) or r.declared_name or "")):
             rid = get_short_name(req) or "—"
             safe = _anchor_id(rid)
             index_rows.append(
@@ -329,7 +340,7 @@ def main():
         if not reqs:
             continue
         md_lines.append(f"## {section}\n")
-        for req in sorted(reqs, key=lambda r: get_short_name(r)):
+        for req in sorted(reqs, key=lambda r: natural_sort_key(get_short_name(r) or r.declared_name or "")):
             req_id   = get_short_name(req) or get_declared_name(req)
             req_name = get_declared_name(req)
             doc      = get_unnamed_doc(req)

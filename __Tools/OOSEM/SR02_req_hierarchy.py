@@ -40,6 +40,17 @@ try:
 except ImportError:
     pass
 
+
+# ── Natural sort ──────────────────────────────────────────────────────────────
+
+def natural_sort_key(s: str) -> list:
+    """
+    Sort key that orders embedded integers numerically.
+    BL.2 < BL.10,  REQ-1 < REQ-10.
+    """
+    return [int(p) if p.isdigit() else p.lower()
+            for p in re.split(r'(\d+)', s)]
+
 # ── Palette & font (matches req_report.py) ────────────────────────────────────
 
 HIGHLIGHT_FILL  = "#1F4E79"
@@ -331,7 +342,7 @@ def main():
             lines.append("> *No requirements found.*\n")
         else:
             lines.append(md_heading("Requirement Tree", 2))
-            for root in sorted(roots, key=lambda r: r.label):
+            for root in sorted(roots, key=lambda r: natural_sort_key(r.label)):
                 lines.extend(md_tree(root))
             lines.append("")
 
@@ -339,7 +350,7 @@ def main():
             rows = [
                 [r.label, r.name, r.def_type or "—", str(len(r.children)),
                  (r.doc[:70] + "...") if len(r.doc) > 70 else r.doc or "—"]
-                for r in sorted(roots, key=lambda r: r.label)
+                for r in sorted(roots, key=lambda r: natural_sort_key(r.label))
             ]
             lines.append(md_table(["ID", "Name", "Type", "Subreqs", "Description"], rows))
 
@@ -357,7 +368,7 @@ def main():
                     "Navy = focal node  |  Light blue = ancestors, siblings & direct children\n"
                 )
                 # Show one representative diagram per root (the root node itself)
-                for root in sorted(roots, key=lambda r: r.label):
+                for root in sorted(roots, key=lambda r: natural_sort_key(r.label)):
                     if root.label in rendered:
                         rel = rendered[root.label].relative_to(args.output)
                         lines.append(f"**{root.label}** — `{root.name}`\n")
