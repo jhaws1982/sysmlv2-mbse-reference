@@ -18,6 +18,8 @@ Usage:
     python __Tools/req_report.py <model_dir>
     python __Tools/req_report.py <model_dir> --format xlsx
     python __Tools/req_report.py <model_dir> --output ./reports
+    python __Tools/req_report.py <model_dir> --package NetworkRequirements
+    python __Tools/req_report.py <model_dir> --format xlsx --sections
 
 Dependencies:
     pip install graphviz openpyxl   (openpyxl only needed for --format xlsx)
@@ -375,6 +377,31 @@ def flatten(node: ReqNode, depth: int = 0) -> list[tuple[int, ReqNode]]:
     return result
 
 
+# ── Package filter ────────────────────────────────────────────────────────────
+
+def _req_in_package(req: syside.RequirementUsage, package_name: str) -> bool:
+    """
+    Return True if `req` lives inside a package whose declared_name matches
+    `package_name` (case-insensitive), searching all ancestor namespaces.
+    """
+    try:
+        ns = req.owning_namespace
+        while ns is not None:
+            try:
+                dn = ns.declared_name
+                if dn and dn.lower() == package_name.lower():
+                    return True
+            except Exception:
+                pass
+            try:
+                ns = ns.owning_namespace
+            except Exception:
+                break
+    except Exception:
+        pass
+    return False
+
+
 # ── Markdown output ───────────────────────────────────────────────────────────
 
 def _md_escape(text: str) -> str:
@@ -413,7 +440,32 @@ def write_markdown(roots: list[ReqNode], output_dir: Path) -> Path:
 
 # ── Excel output ──────────────────────────────────────────────────────────────
 
-def write_xlsx(roots: list[ReqNode], output_dir: Path) -> Path:
+def _section_label(name: str) -> str:
+    """
+    Convert a SysML declared_name to a human-readable section heading.
+    Underscores become spaces; result is sentence-case (first word capitalised,
+    remainder lower-cased, unless a word is an acronym-like all-caps token).
+
+    Examples:
+        "networkRequirements"      -> "Network requirements"
+        "DDIL_transport_layer"     -> "DDIL transport layer"
+        "security_and_crypto_reqs" -> "Security and crypto reqs"
+    """
+    # Insert a space before each upper-case letter that follows a lower-case letter
+    # (handles camelCase names)
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+    # Replace underscores / hyphens with spaces and collapse runs
+    spaced = re.sub(r"[_\-]+", " ", spaced).strip()
+    words = spaced.split()
+    if not words:
+        return name
+    # Sentence-case: capitalise only the first word; leave subsequent words as-is
+    # so that acronyms (DDIL, TCP, ICD) keep their capitalisation.
+    result = words[0].capitalize() + (" " + " ".join(words[1:]) if len(words) > 1 else "")
+    return result
+
+
+def write_xlsx(roots: list[ReqNode], output_dir: Path, sections: bool = False) -> Path:
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment
@@ -425,11 +477,19 @@ def write_xlsx(roots: list[ReqNode], output_dir: Path) -> Path:
     ws = wb.active
     ws.title = "Requirements"
 
-    header_font  = Font(bold=True, color="FFFFFF")
-    header_fill  = PatternFill("solid", fgColor="1F4E79")
-    wrap_align   = Alignment(wrap_text=True, vertical="top")
+    header_font    = Font(bold=True, color="FFFFFF")
+    header_fill    = PatternFill("solid", fgColor="1F4E79")
+    # L0: dark gray banner — strong visual break between top-level groups
+    section_l0_font  = Font(bold=True, color="000000")
+    section_l0_fill  = PatternFill("solid", fgColor="BFBFBF")
+    # L1: lighter gray — sub-section divider, clearly subordinate to L0
+    section_l1_font  = Font(bold=True, color="000000")
+    section_l1_fill  = PatternFill("solid", fgColor="E2E2E2")
+    wrap_align     = Alignment(wrap_text=True, vertical="top")
+    section_align  = Alignment(wrap_text=False, vertical="center")
 
-    headers = ["ID", "Requirement Text", "Rationale", "Satisfied By", "Derived From"]
+    NUM_COLS = 6
+    headers = ["ID", "Requirement Text", "Rationale", "Satisfied By", "Derived From", "Comments"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font      = header_font
@@ -438,7 +498,23 @@ def write_xlsx(roots: list[ReqNode], output_dir: Path) -> Path:
 
     row_num = 2
     for root in roots:
-        for _depth, node in flatten(root):
+        for depth, node in flatten(root):
+            # ── Optional section-header rows (L0 and L1) ──────────────────────
+            if sections and depth in (0, 1):
+                heading = _section_label(node.name or node.label)
+                s_font  = section_l0_font if depth == 0 else section_l1_font
+                s_fill  = section_l0_fill if depth == 0 else section_l1_fill
+                for col in range(1, NUM_COLS + 1):
+                    cell = ws.cell(row=row_num, column=col, value=heading if col == 1 else "")
+                    cell.font      = s_font
+                    cell.fill      = s_fill
+                    cell.alignment = section_align
+                ws.merge_cells(
+                    start_row=row_num, start_column=1,
+                    end_row=row_num,   end_column=NUM_COLS,
+                )
+                row_num += 1
+
             ws.cell(row=row_num, column=1, value=node.label).alignment         = wrap_align
             ws.cell(row=row_num, column=2, value=node.req_text).alignment       = wrap_align
             ws.cell(row=row_num, column=3, value=node.rationale).alignment      = wrap_align
@@ -446,9 +522,10 @@ def write_xlsx(roots: list[ReqNode], output_dir: Path) -> Path:
                     value=", ".join(node.satisfied_by)).alignment               = wrap_align
             ws.cell(row=row_num, column=5,
                     value=", ".join(node.derived_from)).alignment               = wrap_align
+            ws.cell(row=row_num, column=6, value="").alignment                  = wrap_align
             row_num += 1
 
-    col_widths = [18, 70, 50, 30, 30]
+    col_widths = [18, 70, 50, 30, 30, 40]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = width
 
@@ -573,8 +650,11 @@ def write_diagram(root: ReqNode, highlight: ReqNode, output_dir: Path) -> Path |
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def run(model_dir: Path, fmt: str, output_dir: Path):
+def run(model_dir: Path, fmt: str, output_dir: Path,
+        package_filter: str | None = None, sections: bool = False):
     print(f"Opening model at: {model_dir}")
+    if package_filter:
+        print(f"  Package filter: '{package_filter}'")
     with open_model(collect_user_sysml_files(model_dir), allow_errors=True) as model:
         all_reqs: list[syside.RequirementUsage] = []
         all_satisfy: list = []
@@ -589,6 +669,10 @@ def run(model_dir: Path, fmt: str, output_dir: Path):
                 all_satisfy.append(r.cast(syside.SatisfyRequirementUsage.STD))
             elif is_plain_req(r):
                 plain_reqs.append(r)
+
+        # Apply package filter if requested
+        if package_filter:
+            plain_reqs = [r for r in plain_reqs if _req_in_package(r, package_filter)]
 
         print(f"Found {len(plain_reqs)} requirement usage(s), "
               f"{len(all_satisfy)} satisfy relationship(s).")
@@ -609,7 +693,7 @@ def run(model_dir: Path, fmt: str, output_dir: Path):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if fmt == "xlsx":
-            out = write_xlsx(roots, output_dir)
+            out = write_xlsx(roots, output_dir, sections=sections)
         else:
             out = write_markdown(roots, output_dir)
         print(f"  Written: {out}")
@@ -641,7 +725,29 @@ def main():
         default=None,
         help="Output directory (default: __output in current working directory).",
     )
+    parser.add_argument(
+        "--package", "-p",
+        default=None,
+        metavar="PACKAGE_NAME",
+        help=(
+            "Restrict output to requirements inside this package (and its "
+            "sub-packages). Matched case-insensitively against declared_name."
+        ),
+    )
+    parser.add_argument(
+        "--sections",
+        action="store_true",
+        default=False,
+        help=(
+            "Excel only: insert a gray section-header row above each top-level "
+            "requirement.  The header is the human-readable form of the "
+            "requirement's declared name (underscores removed, sentence case)."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.sections and args.format != "xlsx":
+        parser.error("--sections is only valid with --format xlsx")
 
     model_dir = Path(args.model_dir).resolve()
     if not model_dir.is_dir():
@@ -651,7 +757,8 @@ def main():
     output_dir = Path(args.output).resolve() if args.output else Path.cwd() / "__output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    run(model_dir, args.format, output_dir)
+    run(model_dir, args.format, output_dir,
+        package_filter=args.package, sections=args.sections)
 
 
 if __name__ == "__main__":
